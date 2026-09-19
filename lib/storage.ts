@@ -108,9 +108,7 @@ export function logAttempt(attempt: Omit<AttemptLog, "id" | "timestamp">): Attem
   updateProfileWithAttempt(newAttempt);
 
   const currentProfile = getProfile();
-  if (currentProfile.googleDriveWebhookUrl) {
-    syncAttemptToGoogleDrive(currentProfile.googleDriveWebhookUrl, newAttempt, currentProfile);
-  }
+  syncAttemptToGoogleDrive(currentProfile.googleDriveWebhookUrl || "", newAttempt, currentProfile);
 
   return newAttempt;
 }

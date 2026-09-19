@@ -114,25 +114,15 @@ export async function syncAttemptToGoogleDrive(
   attempt: AttemptLog,
   profile: StudentProfile
 ) {
-  if (!webhookUrl || typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
   try {
-    await fetch(webhookUrl, {
+    await fetch("/api/sync-sheet", {
       method: "POST",
-      mode: "no-cors", // Google Apps Script Webhooks typically accept no-cors POST
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        student: profile.name,
-        timestamp: new Date(attempt.timestamp).toISOString(),
-        exerciseType: attempt.exerciseType,
-        topic: attempt.topic,
-        domain: attempt.domain,
-        durationSeconds: attempt.durationSeconds,
-        answer: attempt.input,
-        score: attempt.score,
-        xpEarned: attempt.xpEarned,
-        feedback: attempt.feedback,
-        assessmentPrompt: attempt.assessmentPrompt,
-        modelUsed: profile.selectedModel || "google/gemini-2.5-flash",
+        webhookUrl,
+        attempt,
+        profile,
       }),
     });
   } catch (err) {
