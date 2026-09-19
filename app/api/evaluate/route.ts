@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
             duplicateNotes: distinct < 3 ? ["Try exploring completely different lenses (e.g. money, safety, nature)."] : [],
             feedback: distinct === 3 ? "Superb! Three distinct and relevant points generated." : "Good attempt. Make sure each point looks at the problem from an entirely new angle.",
             xpAwarded: distinct === 3 ? 50 : 25,
+            assessmentPrompt: "Grade 5 Scholarship Heuristic: Evaluates presence of 3 distinct non-empty reasoning angles.",
           });
         }
 
@@ -59,7 +60,7 @@ Return JSON adhering strictly to:
 
         const raw = await callOpenRouter(systemPrompt, JSON.stringify({ topic, arguments: args }), selectedModel);
         const validated = IdeaSprintSchema.parse(raw);
-        return NextResponse.json(validated);
+        return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
       }
 
       case "what_happens_next": {
@@ -76,6 +77,7 @@ Return JSON adhering strictly to:
               : "Try to explain what happens next: what is the direct result of this?",
             score: isReasonable ? 4 : 2,
             xpAwarded: isReasonable ? 35 : 15,
+            assessmentPrompt: "Grade 5 Scholarship Heuristic: Evaluates presence of concrete consequence without circular repetition.",
           });
         }
 
@@ -103,7 +105,7 @@ Return JSON matching:
 
         const raw = await callOpenRouter(systemPrompt, "Evaluate this consequence chain.", selectedModel);
         const validated = WhatHappensNextSchema.parse(raw);
-        return NextResponse.json(validated);
+        return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
       }
 
       case "example_engine": {
@@ -119,6 +121,7 @@ Return JSON matching:
               : "Add more concrete detail: mention specific objects, people, or real-life situations.",
             score: isSpecific ? 4 : 2,
             xpAwarded: isSpecific ? 30 : 15,
+            assessmentPrompt: "Grade 5 Scholarship Heuristic: Evaluates whether student example provides concrete details rather than restating the claim.",
           });
         }
 
@@ -144,7 +147,7 @@ Return JSON matching:
 
         const raw = await callOpenRouter(systemPrompt, "Evaluate the student's example.", selectedModel);
         const validated = ExampleEngineSchema.parse(raw);
-        return NextResponse.json(validated);
+        return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
       }
 
       case "sentence_forge": {
@@ -156,6 +159,7 @@ Return JSON matching:
             usesLogicalConjunction: true,
             feedback: "Well combined! The sentence flows smoothly without unnecessary words.",
             xpAwarded: 30,
+            assessmentPrompt: "Grade 5 Scholarship Heuristic: Checks that multiple clauses are joined grammatically without fragmenting.",
           });
         }
 
@@ -178,7 +182,7 @@ Return JSON:
 
         const raw = await callOpenRouter(systemPrompt, "Evaluate sentence combining.", selectedModel);
         const validated = SentenceForgeSchema.parse(raw);
-        return NextResponse.json(validated);
+        return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
       }
 
       case "three_paragraph_plan": {
@@ -192,6 +196,7 @@ Return JSON:
             feedback: "Excellent exam-ready plan! Your 3 reasons attack the prompt from three different angles.",
             score: 85,
             xpAwarded: 60,
+            assessmentPrompt: "Grade 5 Scholarship Heuristic: Evaluates complete 3-body blueprint for position clarity and distinct topic coverage.",
           });
         }
 
@@ -219,7 +224,7 @@ Return JSON:
 
         const raw = await callOpenRouter(systemPrompt, "Evaluate 3-paragraph plan.", selectedModel);
         const validated = ThreeParagraphPlanSchema.parse(raw);
-        return NextResponse.json(validated);
+        return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
       }
 
       default:

@@ -51,6 +51,7 @@ export function RepeatVsAdd({ onComplete, onBack }: RepeatVsAddProps) {
         xpEarned: xp,
         durationSeconds: 10,
         feedback: currentQ.explanation,
+        assessmentPrompt: "Deterministic Classification: Tests whether sentence 2 introduces an independent consequence (ADD) or merely paraphrases the premise (REPEAT).",
       });
     } else {
       setCurrentStreak(0);
@@ -63,6 +64,7 @@ export function RepeatVsAdd({ onComplete, onBack }: RepeatVsAddProps) {
         xpEarned: 5, // small effort XP
         durationSeconds: 10,
         feedback: currentQ.explanation,
+        assessmentPrompt: "Deterministic Classification: Tests whether sentence 2 introduces an independent consequence (ADD) or merely paraphrases the premise (REPEAT).",
         misconception: "Treated repetition as progression or vice-versa",
       });
       setTotalXpEarned((prev) => prev + 5);

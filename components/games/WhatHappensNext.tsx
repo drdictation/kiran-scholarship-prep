@@ -68,6 +68,7 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
         xpEarned: data.xpAwarded || 35,
         durationSeconds: 45,
         feedback: data.feedback,
+        assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
       console.error(err);

@@ -1,4 +1,5 @@
 import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
+import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
 
 const PROFILE_KEY = "kiran_prep_student_profile_v2"; // Bumped version to cleanly purge any old fake stats
 const ATTEMPTS_KEY = "kiran_prep_attempts_log_v2";
@@ -105,6 +106,12 @@ export function logAttempt(attempt: Omit<AttemptLog, "id" | "timestamp">): Attem
   }
 
   updateProfileWithAttempt(newAttempt);
+
+  const currentProfile = getProfile();
+  if (currentProfile.googleDriveWebhookUrl) {
+    syncAttemptToGoogleDrive(currentProfile.googleDriveWebhookUrl, newAttempt, currentProfile);
+  }
+
   return newAttempt;
 }
 

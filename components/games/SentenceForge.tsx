@@ -58,6 +58,7 @@ export function SentenceForge({ prompt, onComplete, onBack }: SentenceForgeProps
         xpEarned: data.xpAwarded || 30,
         durationSeconds: 25,
         feedback: data.feedback,
+        assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
       console.error(err);

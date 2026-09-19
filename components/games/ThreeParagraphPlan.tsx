@@ -69,6 +69,7 @@ export function ThreeParagraphPlan({ topic, onComplete, onBack }: ThreeParagraph
         xpEarned: data.xpAwarded || 60,
         durationSeconds: elapsed,
         feedback: data.feedback,
+        assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
       console.error(err);

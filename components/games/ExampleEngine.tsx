@@ -57,6 +57,7 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
         xpEarned: data.xpAwarded || 30,
         durationSeconds: 30,
         feedback: data.feedback,
+        assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
       console.error(err);

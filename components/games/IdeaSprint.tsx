@@ -80,6 +80,7 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
         xpEarned: data.xpAwarded || 40,
         durationSeconds: elapsedSeconds,
         feedback: data.feedback,
+        assessmentPrompt: (data as any).assessmentPrompt,
         details: { distinctCount: data.distinctCount, duplicateNotes: data.duplicateNotes },
       });
     } catch (err) {

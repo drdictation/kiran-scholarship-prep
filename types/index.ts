@@ -100,6 +100,7 @@ export interface AttemptLog {
   feedback: string;
   details?: Record<string, any>;
   misconception?: string;
+  assessmentPrompt?: string;
 }
 
 export interface StudentProfile {
@@ -118,6 +119,7 @@ export interface StudentProfile {
   };
   domainStats: Record<TopicDomain, { attempts: number; avgScore: number }>;
   selectedModel?: string;
+  googleDriveWebhookUrl?: string;
 }
 
 export interface IdeaSprintEvaluation {

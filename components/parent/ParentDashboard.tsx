@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
 import { getProfile, getAttempts, saveProfile } from "@/lib/storage";
+import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import {
   BarChart3,
   Brain,
@@ -12,6 +13,12 @@ import {
   Sparkles,
   Cpu,
   CheckCircle2,
+  Download,
+  Copy,
+  FileText,
+  Cloud,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export function ParentDashboard() {
@@ -21,12 +28,20 @@ export function ParentDashboard() {
   const [customModelInput, setCustomModelInput] = useState<string>("");
   const [modelSaveMsg, setModelSaveMsg] = useState(false);
 
+  const [copiedDossier, setCopiedDossier] = useState(false);
+  const [webhookUrlInput, setWebhookUrlInput] = useState("");
+  const [webhookSaveMsg, setWebhookSaveMsg] = useState(false);
+  const [showWebhookGuide, setShowWebhookGuide] = useState(false);
+
   useEffect(() => {
     const p = getProfile();
     setProfile(p);
     setAttempts(getAttempts());
     if (p.selectedModel) {
       setSelectedModel(p.selectedModel);
+    }
+    if (p.googleDriveWebhookUrl) {
+      setWebhookUrlInput(p.googleDriveWebhookUrl);
     }
   }, []);
 
@@ -38,6 +53,46 @@ export function ParentDashboard() {
     setSelectedModel(model);
     setModelSaveMsg(true);
     setTimeout(() => setModelSaveMsg(false), 3000);
+  };
+
+  const handleSaveWebhook = (url: string) => {
+    if (!profile) return;
+    const updated = { ...profile, googleDriveWebhookUrl: url.trim() };
+    saveProfile(updated);
+    setProfile(updated);
+    setWebhookUrlInput(url.trim());
+    setWebhookSaveMsg(true);
+    setTimeout(() => setWebhookSaveMsg(false), 3000);
+  };
+
+  const handleCopyDossier = () => {
+    if (!profile) return;
+    const md = generateAiAuditMarkdown(profile, attempts);
+    navigator.clipboard.writeText(md);
+    setCopiedDossier(true);
+    setTimeout(() => setCopiedDossier(false), 3000);
+  };
+
+  const handleDownloadMarkdown = () => {
+    if (!profile) return;
+    const md = generateAiAuditMarkdown(profile, attempts);
+    const dateTag = new Date().toISOString().split("T")[0];
+    downloadFile(md, `kiran_writing_audit_${dateTag}.md`, "text/markdown");
+  };
+
+  const handleDownloadJson = () => {
+    if (!profile) return;
+    const exportData = {
+      profile,
+      attempts,
+      exportedAt: new Date().toISOString(),
+    };
+    const dateTag = new Date().toISOString().split("T")[0];
+    downloadFile(
+      JSON.stringify(exportData, null, 2),
+      `kiran_writing_audit_${dateTag}.json`,
+      "application/json"
+    );
   };
 
   if (!profile) return null;
@@ -294,6 +349,134 @@ export function ParentDashboard() {
         </div>
         <div className="text-[11px] text-slate-400">
           Currently active model: <strong className="font-mono text-slate-700">{selectedModel}</strong>
+        </div>
+      </div>
+
+      {/* AI AUDIT DOSSIER & GOOGLE DRIVE SYNC */}
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> External AI Audit &amp; Sync
+              </span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mt-2">
+              Export Audit Dossier for AI Review
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
+              Export complete practice records including: <strong>1) Question</strong>, <strong>2) Time used</strong>, <strong>3) Kiran&apos;s answer</strong>, <strong>4) Grade awarded</strong>, and <strong>5) Exact Assessment Prompts</strong>. Use this to audit with an external AI (ChatGPT, Claude) whether he is optimizing for speed over quality or repeating arguments.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyDossier}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedDossier ? "Copied to Clipboard!" : "Copy for External AI"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadMarkdown}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download .md</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadJson}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              title="Download raw JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>.json</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Live Google Drive / Google Sheets Webhook Sync */}
+        <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-emerald-600" />
+              <span className="text-xs font-bold text-slate-800">
+                Live Google Drive / Google Sheets Sync (Optional)
+              </span>
+            </div>
+            {webhookSaveMsg && (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Webhook URL Saved!
+              </span>
+            )}
+          </div>
+
+          <p className="text-[11px] text-slate-500">
+            Paste a Google Apps Script Webhook URL to automatically log each completed drill into a Google Sheet in your Google Drive in real time.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              value={webhookUrlInput}
+              onChange={(e) => setWebhookUrlInput(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full text-xs px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-800 bg-white"
+            />
+            <button
+              type="button"
+              onClick={() => handleSaveWebhook(webhookUrlInput)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
+            >
+              Save Sync URL
+            </button>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowWebhookGuide(!showWebhookGuide)}
+              className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            >
+              {showWebhookGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {showWebhookGuide ? "Hide Google Sheet setup instructions" : "How to set up Google Sheets live sync (1 minute)"}
+            </button>
+
+            {showWebhookGuide && (
+              <div className="mt-2.5 p-3 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 space-y-2 animate-fade-in">
+                <p className="font-semibold text-slate-900">
+                  Quick 3-step setup to write directly to your Google Drive:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
+                  <li>In Google Drive, create a new <strong>Google Sheet</strong>.</li>
+                  <li>Click <strong>Extensions &rarr; Apps Script</strong> and paste this snippet:</li>
+                </ol>
+                <pre className="p-2.5 bg-slate-900 text-emerald-300 rounded-lg text-[11px] font-mono overflow-x-auto">
+{`function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var d = JSON.parse(e.postData.contents);
+  sheet.appendRow([
+    d.timestamp,
+    d.exerciseType,
+    d.topic,
+    d.durationSeconds + "s",
+    JSON.stringify(d.answer),
+    d.score + "%",
+    d.feedback,
+    d.assessmentPrompt
+  ]);
+  return ContentService.createTextOutput("OK");
+}`}
+                </pre>
+                <ol start={3} className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
+                  <li>Click <strong>Deploy &rarr; New Deployment &rarr; Web app</strong> (set &ldquo;Who has access&rdquo; to <em>Anyone</em>), then copy the Web App URL and paste it above!</li>
+                </ol>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
