@@ -16,6 +16,7 @@ import { WhatHappensNext } from "@/components/games/WhatHappensNext";
 import { ExampleEngine } from "@/components/games/ExampleEngine";
 import { SentenceForge } from "@/components/games/SentenceForge";
 import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
+import { ParagraphBuilder } from "@/components/games/ParagraphBuilder";
 import {
   Flame,
   Sparkles,
@@ -111,6 +112,17 @@ export function StudentHome() {
     return (
       <SentenceForge
         prompt={randomPrompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "paragraph_builder") {
+    const randomTopic = SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
+    return (
+      <ParagraphBuilder
+        topic={randomTopic}
         onComplete={refreshProfile}
         onBack={() => setActiveMode(null)}
       />
@@ -332,6 +344,34 @@ export function StudentHome() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sky-600">
               <span>Synthesis Drill</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Paragraph Builder */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("paragraph_builder")}
+            className="p-5 bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-2xl border-2 border-indigo-300 hover:border-indigo-600 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-sm">
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-200/80 text-indigo-800 px-2 py-0.5 rounded-full">
+                  Exam High-Yield
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Paragraph Builder
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Train the 5-part architecture: SAY → WHY → EXAMPLE → RESULT → LINK with deliberate rewrite.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-200/70 flex items-center justify-between text-xs font-bold text-indigo-700">
+              <span>Progression & Architecture</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

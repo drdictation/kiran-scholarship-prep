@@ -13,6 +13,10 @@ export const DEFAULT_PROFILE: StudentProfile = {
   lastActiveDate: "",
   examDate: "",
   skillsMastery: {
+    concrete_evidence: 0,
+    consequence_reasoning: 0,
+    paragraph_progression: 0,
+    prompt_fidelity: 0,
     argument_distinction: 0,
     repeat_vs_add: 0,
     causal_reasoning: 0,
@@ -63,6 +67,11 @@ export function getProfile(): StudentProfile {
       localStorage.setItem(PROFILE_KEY, JSON.stringify(DEFAULT_PROFILE));
       return DEFAULT_PROFILE;
     }
+    // Ensure all skill keys exist cleanly
+    parsed.skillsMastery = {
+      ...DEFAULT_PROFILE.skillsMastery,
+      ...(parsed.skillsMastery || {}),
+    };
     return parsed;
   } catch {
     return DEFAULT_PROFILE;
@@ -149,35 +158,40 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
   }
 
   // Update skill mastery using rolling weighted score
-  let skillKey: SkillId | null = null;
+  const updateRollingScore = (key: SkillId, score: number) => {
+    const current = profile.skillsMastery[key] || 0;
+    const updated = current === 0 ? Math.round(score) : Math.round(current * 0.8 + score * 0.2);
+    profile.skillsMastery[key] = Math.max(0, Math.min(100, updated));
+  };
+
   switch (attempt.exerciseType) {
     case "idea_sprint":
-      skillKey = "argument_distinction";
+      updateRollingScore("argument_distinction", attempt.score);
       break;
     case "repeat_vs_add":
-      skillKey = "repeat_vs_add";
+      updateRollingScore("repeat_vs_add", attempt.score);
       break;
     case "what_happens_next":
-      skillKey = "causal_reasoning";
+      updateRollingScore("consequence_reasoning", attempt.score);
+      updateRollingScore("causal_reasoning", attempt.score);
       break;
     case "example_engine":
-      skillKey = "example_generation";
+      updateRollingScore("concrete_evidence", attempt.score);
+      updateRollingScore("example_generation", attempt.score);
       break;
     case "sentence_forge":
-      skillKey = "sentence_combining";
+      updateRollingScore("sentence_combining", attempt.score);
       break;
     case "three_paragraph_plan":
-      skillKey = "planning_speed";
+      updateRollingScore("planning_speed", attempt.score);
       break;
-  }
-
-  if (skillKey) {
-    const currentScore = profile.skillsMastery[skillKey] || 0;
-    const newScore =
-      currentScore === 0
-        ? Math.round(attempt.score)
-        : Math.round(currentScore * 0.8 + attempt.score * 0.2);
-    profile.skillsMastery[skillKey] = Math.max(0, Math.min(100, newScore));
+    case "paragraph_builder":
+      updateRollingScore("paragraph_progression", attempt.score);
+      if (attempt.details?.promptFidelityScore !== undefined) {
+        updateRollingScore("prompt_fidelity", attempt.details.promptFidelityScore);
+      }
+      updateRollingScore("paragraph_link", attempt.score);
+      break;
   }
 
   // Update Domain stats if available

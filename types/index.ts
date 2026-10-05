@@ -5,7 +5,11 @@ export type SkillId =
   | "example_generation"
   | "sentence_combining"
   | "paragraph_link"
-  | "planning_speed";
+  | "planning_speed"
+  | "concrete_evidence"
+  | "consequence_reasoning"
+  | "paragraph_progression"
+  | "prompt_fidelity";
 
 export interface SkillDefinition {
   id: SkillId;
@@ -41,7 +45,8 @@ export type ExerciseType =
   | "what_happens_next"
   | "example_engine"
   | "sentence_forge"
-  | "three_paragraph_plan";
+  | "three_paragraph_plan"
+  | "paragraph_builder";
 
 export interface RepeatVsAddExercise {
   id: string;
@@ -85,6 +90,14 @@ export interface ThreeParagraphPlanPrompt {
   topic: string;
   domain: TopicDomain;
   suggestedLenses?: string[];
+}
+
+export interface ParagraphBuilderPrompt {
+  id: string;
+  topic: string;
+  domain: TopicDomain;
+  suggestedPosition?: string;
+  promptTip?: string;
 }
 
 export interface AttemptLog {
@@ -142,15 +155,32 @@ export interface WhatHappensNextEvaluation {
   advancesReasoning: boolean;
   repeatsPreviousIdea: boolean;
   causalLinkValid: boolean;
+  isPlausible: boolean;
+  isProportionate: boolean;
+  severityInflationDetected: boolean;
   feedback: string;
   score: number; // 1-5
   xpAwarded: number;
 }
 
+export type ExampleFailureMode =
+  | "GOOD"
+  | "TOO_GENERAL"
+  | "REASON_RESTATED"
+  | "UNREALISTIC"
+  | "OVERCOMPLICATED"
+  | "OVERDRAMATIC";
+
 export interface ExampleEngineEvaluation {
   valid: boolean;
   isConcrete: boolean;
+  isRealistic: boolean;
   isRelevant: boolean;
+  isConcise: boolean;
+  failureMode: ExampleFailureMode;
+  hasSpecificPerson?: boolean;
+  hasContext?: boolean;
+  hasObservableAction?: boolean;
   feedback: string;
   score: number; // 1-5
   xpAwarded: number;
@@ -171,5 +201,44 @@ export interface ThreeParagraphPlanEvaluation {
   argumentsQuality: string;
   feedback: string;
   score: number;
+  xpAwarded: number;
+}
+
+export type ParagraphFieldKey = "SAY" | "WHY" | "EXAMPLE" | "RESULT" | "LINK";
+
+export interface SentenceEvaluation {
+  field: ParagraphFieldKey;
+  label: string;
+  text: string;
+  score: number; // 1-5
+  feedback: string;
+  performsFunction: boolean;
+  advancesArgument: boolean;
+}
+
+export interface ParagraphBuilderEvaluation {
+  valid: boolean;
+  clearReason: boolean;
+  whyAddsExplanation: boolean;
+  concreteRelevantExample: boolean;
+  logicalProportionateResult: boolean;
+  linkAnswersProposition: boolean;
+  progressionNoSemanticRepetition: boolean;
+  promptFidelityScore: number; // 0-100
+  overallScore: number; // 0-100
+  weakestField: ParagraphFieldKey;
+  weakestReason: string;
+  sentenceEvaluations: Record<ParagraphFieldKey, SentenceEvaluation>;
+  feedback: string;
+  xpAwarded: number;
+}
+
+export interface ParagraphRewriteEvaluation {
+  valid: boolean;
+  field: ParagraphFieldKey;
+  originalText: string;
+  rewrittenText: string;
+  improved: boolean;
+  feedback: string;
   xpAwarded: number;
 }

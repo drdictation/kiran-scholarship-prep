@@ -6,7 +6,8 @@ const DEFAULT_MODEL = process.env.OPENROUTER_PRIMARY_MODEL || "google/gemini-2.5
 export async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string,
-  modelOverride?: string
+  modelOverride?: string,
+  maxTokens: number = 750
 ) {
   if (!OPENROUTER_API_KEY) {
     throw new Error("MISSING_API_KEY");
@@ -26,7 +27,7 @@ export async function callOpenRouter(
       model: selectedModel,
       response_format: { type: "json_object" },
       temperature: 0.2,
-      max_tokens: 600,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -70,6 +71,9 @@ export const WhatHappensNextSchema = z.object({
   advancesReasoning: z.boolean(),
   repeatsPreviousIdea: z.boolean(),
   causalLinkValid: z.boolean(),
+  isPlausible: z.boolean().default(true),
+  isProportionate: z.boolean().default(true),
+  severityInflationDetected: z.boolean().default(false),
   feedback: z.string(),
   score: z.number().min(1).max(5),
   xpAwarded: z.number(),
@@ -78,7 +82,22 @@ export const WhatHappensNextSchema = z.object({
 export const ExampleEngineSchema = z.object({
   valid: z.boolean(),
   isConcrete: z.boolean(),
+  isRealistic: z.boolean().default(true),
   isRelevant: z.boolean(),
+  isConcise: z.boolean().default(true),
+  failureMode: z
+    .enum([
+      "GOOD",
+      "TOO_GENERAL",
+      "REASON_RESTATED",
+      "UNREALISTIC",
+      "OVERCOMPLICATED",
+      "OVERDRAMATIC",
+    ])
+    .default("GOOD"),
+  hasSpecificPerson: z.boolean().optional(),
+  hasContext: z.boolean().optional(),
+  hasObservableAction: z.boolean().optional(),
   feedback: z.string(),
   score: z.number().min(1).max(5),
   xpAwarded: z.number(),
@@ -99,5 +118,48 @@ export const ThreeParagraphPlanSchema = z.object({
   argumentsQuality: z.string(),
   feedback: z.string(),
   score: z.number().min(0).max(100),
+  xpAwarded: z.number(),
+});
+
+const SentenceEvalSchema = z.object({
+  field: z.enum(["SAY", "WHY", "EXAMPLE", "RESULT", "LINK"]),
+  label: z.string().default(""),
+  text: z.string().default(""),
+  score: z.number().min(1).max(5),
+  feedback: z.string(),
+  performsFunction: z.boolean(),
+  advancesArgument: z.boolean(),
+});
+
+export const ParagraphBuilderSchema = z.object({
+  valid: z.boolean(),
+  clearReason: z.boolean(),
+  whyAddsExplanation: z.boolean(),
+  concreteRelevantExample: z.boolean(),
+  logicalProportionateResult: z.boolean(),
+  linkAnswersProposition: z.boolean(),
+  progressionNoSemanticRepetition: z.boolean(),
+  promptFidelityScore: z.number().min(0).max(100),
+  overallScore: z.number().min(0).max(100),
+  weakestField: z.enum(["SAY", "WHY", "EXAMPLE", "RESULT", "LINK"]),
+  weakestReason: z.string(),
+  sentenceEvaluations: z.object({
+    SAY: SentenceEvalSchema,
+    WHY: SentenceEvalSchema,
+    EXAMPLE: SentenceEvalSchema,
+    RESULT: SentenceEvalSchema,
+    LINK: SentenceEvalSchema,
+  }),
+  feedback: z.string(),
+  xpAwarded: z.number(),
+});
+
+export const ParagraphRewriteSchema = z.object({
+  valid: z.boolean(),
+  field: z.enum(["SAY", "WHY", "EXAMPLE", "RESULT", "LINK"]),
+  originalText: z.string(),
+  rewrittenText: z.string(),
+  improved: z.boolean(),
+  feedback: z.string(),
   xpAwarded: z.number(),
 });

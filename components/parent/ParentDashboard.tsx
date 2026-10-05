@@ -100,7 +100,31 @@ export function ParentDashboard() {
   const totalSeconds = attempts.reduce((acc, a) => acc + (a.durationSeconds || 0), 0);
   const totalMinutes = Math.round(totalSeconds / 60);
 
-  const skillsList: { id: SkillId; label: string; description: string }[] = [
+  const skillsList: { id: SkillId; label: string; description: string; priority?: boolean }[] = [
+    {
+      id: "concrete_evidence",
+      label: "Concrete Evidence (Scene Quality)",
+      description: "WHO + WHERE + WHAT HAPPENS; avoids vague restatements and melodramatic leaps",
+      priority: true,
+    },
+    {
+      id: "consequence_reasoning",
+      label: "Consequence Reasoning (Proportionality)",
+      description: "Direct, realistic cause & effect; penalizes severity inflation (catastrophizing)",
+      priority: true,
+    },
+    {
+      id: "paragraph_progression",
+      label: "Paragraph Progression (5-Part)",
+      description: "SAY → WHY → EXAMPLE → RESULT → LINK; ensures each sentence moves argument forward",
+      priority: true,
+    },
+    {
+      id: "prompt_fidelity",
+      label: "Prompt Fidelity",
+      description: "Answers the exact prompt asked without subtly re-scoping or changing the task",
+      priority: true,
+    },
     {
       id: "argument_distinction",
       label: "Argument Distinction",
@@ -110,16 +134,6 @@ export function ParentDashboard() {
       id: "repeat_vs_add",
       label: "Avoids Repetition (Repeat vs Add)",
       description: "Detects paraphrasing vs genuine logical progression",
-    },
-    {
-      id: "causal_reasoning",
-      label: "Consequence Reasoning",
-      description: "Explains 'What happens next' and 'Why does it matter'",
-    },
-    {
-      id: "example_generation",
-      label: "Concrete Evidence",
-      description: "Provides specific, illustrative real-world examples",
     },
     {
       id: "sentence_combining",
@@ -517,9 +531,14 @@ export function ParentDashboard() {
             return (
               <div key={skill.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800">{skill.label}</span>
-                    <span className="text-slate-400 ml-2 hidden sm:inline">
+                    {skill.priority && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
+                        Exam Priority
+                      </span>
+                    )}
+                    <span className="text-slate-400 ml-1 hidden sm:inline">
                       • {skill.description}
                     </span>
                   </div>
@@ -603,10 +622,36 @@ export function ParentDashboard() {
                   key={att.id}
                   className="p-4 rounded-2xl border border-slate-200 bg-slate-50/40 space-y-2 text-xs"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] bg-white px-2 py-0.5 rounded border border-slate-200">
-                      {att.exerciseType.replace(/_/g, " ")}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {att.exerciseType.replace(/_/g, " ")}
+                      </span>
+                      {att.details?.failureMode && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          att.details.failureMode === "GOOD"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-rose-50 text-rose-700 border-rose-200"
+                        }`}>
+                          {att.details.failureMode}
+                        </span>
+                      )}
+                      {att.details?.severityInflationDetected && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                          Severity Inflated
+                        </span>
+                      )}
+                      {att.details?.weakestField && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                          Weakest: {att.details.weakestField}
+                        </span>
+                      )}
+                      {att.details?.promptFidelityScore !== undefined && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                          Fidelity: {att.details.promptFidelityScore}%
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
                         Score: {att.score}% (+{att.xpEarned} XP)

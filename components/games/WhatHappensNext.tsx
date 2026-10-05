@@ -68,6 +68,14 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
         xpEarned: data.xpAwarded || 35,
         durationSeconds: 45,
         feedback: data.feedback,
+        details: {
+          advancesReasoning: data.advancesReasoning,
+          repeatsPreviousIdea: data.repeatsPreviousIdea,
+          causalLinkValid: data.causalLinkValid,
+          isPlausible: data.isPlausible,
+          isProportionate: data.isProportionate,
+          severityInflationDetected: data.severityInflationDetected,
+        },
         assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
@@ -103,6 +111,9 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
           <strong>Model Consequence Chain:</strong>
           <div>Next: &ldquo;{prompt.sampleNext}&rdquo;</div>
           <div>Why it matters: &ldquo;{prompt.sampleMatter}&rdquo;</div>
+          <div className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/60 mt-1">
+            ⚖️ <strong>Examiner Rule:</strong> Make consequences <em>proportionate and realistic</em>. Do not jump to extreme outcomes like depression or therapy.
+          </div>
         </div>
       )}
 
@@ -122,7 +133,7 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
               <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-xs flex items-center justify-center">
                 1
               </span>
-              Step 1: What happens because of this? (Direct Effect)
+              Step 1: What happens next as a direct result? (Keep it realistic & proportionate)
             </label>
             <input
               type="text"
@@ -141,7 +152,7 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
                 <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-xs flex items-center justify-center">
                   2
                 </span>
-                Step 2: Why does THAT matter? (Significance / Impact)
+                Step 2: Why does THAT matter? (Direct impact without drama)
               </label>
               <input
                 type="text"
@@ -190,25 +201,49 @@ export function WhatHappensNext({ prompt, onComplete, onBack }: WhatHappensNextP
         <div className="space-y-6 animate-fade-in">
           <div
             className={`p-5 rounded-2xl border ${
-              result.advancesReasoning && !result.repeatsPreviousIdea
+              result.advancesReasoning && !result.repeatsPreviousIdea && !result.severityInflationDetected
                 ? "bg-emerald-50 border-emerald-200 text-emerald-950"
                 : "bg-amber-50 border-amber-200 text-amber-950"
             }`}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                {result.advancesReasoning ? (
+                {result.advancesReasoning && !result.severityInflationDetected ? (
                   <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 ) : (
                   <AlertCircle className="w-6 h-6 text-amber-600" />
                 )}
                 <span className="font-bold text-lg">
-                  {result.advancesReasoning ? "Strong Causal Chain!" : "Reasoning Echo Detected"}
+                  {result.severityInflationDetected
+                    ? "Severity Inflation Detected"
+                    : result.advancesReasoning
+                    ? "Strong, Proportionate Chain!"
+                    : "Reasoning Echo Detected"}
                 </span>
               </div>
               <span className="font-bold text-indigo-700 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-500" /> +{result.xpAwarded} XP
               </span>
+            </div>
+
+            {/* Severity inflation alert banner */}
+            {result.severityInflationDetected && (
+              <div className="mb-3 p-3 rounded-xl bg-purple-100/80 border border-purple-300 text-xs text-purple-900 font-medium">
+                ⚠️ <strong>Do not make consequences more dramatic — make them more logical.</strong> A leap to extreme outcomes (depression, hospital, therapy) is less persuasive to scholarship examiners than a direct, believable consequence.
+              </div>
+            )}
+
+            {/* Diagnostic Badges */}
+            <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+              <div className={`p-2 rounded-lg border font-medium ${result.advancesReasoning ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-rose-100/70 border-rose-300 text-rose-800"}`}>
+                {result.advancesReasoning ? "✓ New Step" : "✗ Circular Echo"}
+              </div>
+              <div className={`p-2 rounded-lg border font-medium ${!result.severityInflationDetected && result.isProportionate ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-purple-100/70 border-purple-300 text-purple-800"}`}>
+                {!result.severityInflationDetected ? "✓ Proportionate" : "✗ Severity Inflated"}
+              </div>
+              <div className={`p-2 rounded-lg border font-medium ${result.causalLinkValid ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-amber-100/70 border-amber-300 text-amber-800"}`}>
+                {result.causalLinkValid ? "✓ Direct Cause" : "○ Weak Link"}
+              </div>
             </div>
 
             <p className="text-sm font-medium leading-relaxed">{result.feedback}</p>

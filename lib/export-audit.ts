@@ -34,12 +34,14 @@ export function generateAiAuditMarkdown(
 ---
 
 ## 📊 Summary Metrics
-- **Argument Distinction Mastery:** ${profile.skillsMastery.argument_distinction}%
-- **Avoids Repetition (Repeat vs Add):** ${profile.skillsMastery.repeat_vs_add}%
-- **Consequence Reasoning:** ${profile.skillsMastery.causal_reasoning}%
-- **Concrete Evidence:** ${profile.skillsMastery.example_generation}%
-- **Sentence Combining:** ${profile.skillsMastery.sentence_combining}%
-- **Planning Fluency:** ${profile.skillsMastery.planning_speed}%
+- **Concrete Evidence (Scene Quality):** ${profile.skillsMastery.concrete_evidence || profile.skillsMastery.example_generation || 0}%
+- **Consequence Reasoning (Proportionality):** ${profile.skillsMastery.consequence_reasoning || profile.skillsMastery.causal_reasoning || 0}%
+- **Paragraph Progression (5-Part Architecture):** ${profile.skillsMastery.paragraph_progression || 0}%
+- **Prompt Fidelity:** ${profile.skillsMastery.prompt_fidelity || 0}%
+- **Argument Distinction:** ${profile.skillsMastery.argument_distinction || 0}%
+- **Avoids Repetition (Repeat vs Add):** ${profile.skillsMastery.repeat_vs_add || 0}%
+- **Sentence Combining:** ${profile.skillsMastery.sentence_combining || 0}%
+- **Planning Fluency:** ${profile.skillsMastery.planning_speed || 0}%
 - **Fastest Idea Sprint:** ${profile.personalBests.fastestIdeaSprintSeconds ? `${profile.personalBests.fastestIdeaSprintSeconds}s` : "None"}
 
 ---

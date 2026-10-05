@@ -57,6 +57,14 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
         xpEarned: data.xpAwarded || 30,
         durationSeconds: 30,
         feedback: data.feedback,
+        details: {
+          failureMode: data.failureMode,
+          isRealistic: data.isRealistic,
+          isConcise: data.isConcise,
+          hasSpecificPerson: data.hasSpecificPerson,
+          hasContext: data.hasContext,
+          hasObservableAction: data.hasObservableAction,
+        },
         assessmentPrompt: (data as any).assessmentPrompt,
       });
     } catch (err) {
@@ -64,6 +72,25 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
       alert("Evaluation failed. Attempt recorded.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const getFailureLabel = (mode?: string) => {
+    switch (mode) {
+      case "GOOD":
+        return { label: "Strong Concrete Evidence", color: "text-emerald-700 bg-emerald-100 border-emerald-300" };
+      case "REASON_RESTATED":
+        return { label: "Reason Disguised as Example", color: "text-rose-700 bg-rose-100 border-rose-300" };
+      case "OVERDRAMATIC":
+        return { label: "Overdramatic / Exaggerated", color: "text-purple-700 bg-purple-100 border-purple-300" };
+      case "TOO_GENERAL":
+        return { label: "Too General (Needs Specific Scene)", color: "text-amber-700 bg-amber-100 border-amber-300" };
+      case "UNREALISTIC":
+        return { label: "Unrealistic Scenario", color: "text-amber-700 bg-amber-100 border-amber-300" };
+      case "OVERCOMPLICATED":
+        return { label: "Overcomplicated / Rambling", color: "text-amber-700 bg-amber-100 border-amber-300" };
+      default:
+        return { label: "Evidence Needs Sharpening", color: "text-slate-700 bg-slate-100 border-slate-300" };
     }
   };
 
@@ -89,10 +116,13 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
 
       {showTip && (
         <div className="mb-5 p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 space-y-1.5 animate-fade-in">
-          <div className="font-semibold text-rose-700">❌ Avoid circular examples:</div>
+          <div className="font-semibold text-rose-700">❌ Avoid circular & dramatic examples:</div>
           <div>&ldquo;{prompt.weakExample}&rdquo;</div>
           <div className="font-semibold text-emerald-700 pt-1">💡 What examiners look for:</div>
           <div>{prompt.strongExampleTip}</div>
+          <div className="text-[11px] text-slate-600 pt-1 border-t border-amber-200/60 mt-1">
+            <strong>Formula:</strong> WHO (specific person) + CONTEXT (when/where) + WHAT HAPPENS (observable action).
+          </div>
         </div>
       )}
 
@@ -107,14 +137,19 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
       {!result ? (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-slate-800 mb-1.5">
-              Provide ONE specific, real-world example to illustrate this:
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-bold text-slate-800">
+                Turn this into ONE scene the reader can picture:
+              </label>
+              <span className="text-xs text-slate-500 font-medium">
+                WHO + WHERE + WHAT HAPPENS
+              </span>
+            </div>
             <textarea
               rows={3}
               value={studentExample}
               onChange={(e) => setStudentExample(e.target.value)}
-              placeholder="For example, when a family replaces the battery in a 3-year-old smartphone rather than throwing the phone away..."
+              placeholder="e.g. When a Year 5 student joining a new school participates in the soccer club, they learn team drills and introduce themselves to teammates..."
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 text-sm leading-relaxed"
               autoFocus
             />
@@ -134,7 +169,7 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
               disabled={isSubmitting || !studentExample.trim()}
               className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-sm transition-all"
             >
-              {isSubmitting ? "Testing Specificity..." : "Submit Example"}{" "}
+              {isSubmitting ? "Testing Evidence..." : "Submit Example"}{" "}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -144,25 +179,48 @@ export function ExampleEngine({ prompt, onComplete, onBack }: ExampleEngineProps
         <div className="space-y-6 animate-fade-in">
           <div
             className={`p-5 rounded-2xl border ${
-              result.isConcrete
+              result.failureMode === "GOOD"
                 ? "bg-emerald-50 border-emerald-200 text-emerald-950"
                 : "bg-amber-50 border-amber-200 text-amber-950"
             }`}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                {result.isConcrete ? (
+                {result.failureMode === "GOOD" ? (
                   <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 ) : (
                   <AlertCircle className="w-6 h-6 text-amber-600" />
                 )}
                 <span className="font-bold text-lg">
-                  {result.isConcrete ? "Concrete & Specific Example!" : "Needs More Concrete Detail"}
+                  {result.failureMode === "GOOD" ? "Concrete, Realistic Example!" : "Evidence Diagnostic"}
                 </span>
               </div>
               <span className="font-bold text-indigo-700 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-500" /> +{result.xpAwarded} XP
               </span>
+            </div>
+
+            {/* Diagnostic Badge */}
+            <div className="mb-3">
+              <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold border ${getFailureLabel(result.failureMode).color}`}>
+                {getFailureLabel(result.failureMode).label}
+              </span>
+            </div>
+
+            {/* Criteria checklist */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
+              <div className={`p-2 rounded-lg border font-medium ${result.isConcrete ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-white/80 border-slate-200 text-slate-500"}`}>
+                {result.isConcrete ? "✓ Concrete" : "○ Vague"}
+              </div>
+              <div className={`p-2 rounded-lg border font-medium ${result.isRealistic ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-rose-100/70 border-rose-300 text-rose-800"}`}>
+                {result.isRealistic ? "✓ Realistic" : "✗ Unrealistic/Drama"}
+              </div>
+              <div className={`p-2 rounded-lg border font-medium ${result.isRelevant ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-amber-100/70 border-amber-300 text-amber-800"}`}>
+                {result.isRelevant ? "✓ Relevant" : "○ Off-Topic"}
+              </div>
+              <div className={`p-2 rounded-lg border font-medium ${result.isConcise ? "bg-emerald-100/70 border-emerald-300 text-emerald-800" : "bg-amber-100/70 border-amber-300 text-amber-800"}`}>
+                {result.isConcise ? "✓ Concise" : "○ Overcomplicated"}
+              </div>
             </div>
 
             <p className="text-sm font-medium leading-relaxed">{result.feedback}</p>
