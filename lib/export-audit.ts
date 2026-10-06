@@ -17,7 +17,7 @@ export function generateAiAuditMarkdown(
 **Student:** ${profile.name} (Grade 5 Australian Scholarship Preparation)  
 **Total Recorded Drills:** ${attempts.length}  
 **Active Level:** Level ${profile.level} (${profile.levelTitle}) | **Total XP:** ${profile.totalXp}  
-**Active AI Model:** \`${profile.selectedModel || "google/gemini-2.5-flash"}\`
+**Active AI Model:** \`${profile.selectedModel || "openai/gpt-6.1-sol"}\`
 
 ---
 

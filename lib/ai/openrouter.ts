@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const DEFAULT_MODEL = process.env.OPENROUTER_PRIMARY_MODEL || "google/gemini-2.5-flash";
+const DEFAULT_MODEL = process.env.OPENROUTER_PRIMARY_MODEL || "openai/gpt-6.1-sol";
 
 export async function callOpenRouter(
   systemPrompt: string,

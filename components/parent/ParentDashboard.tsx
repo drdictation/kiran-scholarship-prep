@@ -24,7 +24,7 @@ import {
 export function ParentDashboard() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [attempts, setAttempts] = useState<AttemptLog[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState<string>("openai/gpt-6.1-sol");
   const [customModelInput, setCustomModelInput] = useState<string>("");
   const [modelSaveMsg, setModelSaveMsg] = useState(false);
 
@@ -390,9 +390,9 @@ export function ParentDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           {[
             {
-              id: "openai/gpt-5.6-luna",
-              name: "GPT-5.6 Luna",
-              tag: "OpenAI",
+              id: "openai/gpt-6.1-sol",
+              name: "GPT-6.1 Sol",
+              tag: "OpenAI (Default)",
               desc: "Deep reasoning & nuanced writing evaluation",
             },
             {
@@ -404,7 +404,7 @@ export function ParentDashboard() {
             {
               id: "google/gemini-2.5-flash",
               name: "Gemini 2.5 Flash",
-              tag: "Google (Default)",
+              tag: "Google",
               desc: "Fast, accurate & highly economical",
             },
           ].map((preset) => {
