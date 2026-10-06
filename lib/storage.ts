@@ -69,7 +69,15 @@ export const LEVEL_TIERS = [
 export function getProfile(): StudentProfile {
   if (typeof window === "undefined") return DEFAULT_PROFILE;
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
+    let raw = localStorage.getItem(PROFILE_KEY);
+    // Backward compatibility: migrate from v2 or v1 if v3 not found
+    if (!raw) {
+      raw = localStorage.getItem("kiran_prep_student_profile_v2") ||
+            localStorage.getItem("kiran_prep_student_profile");
+      if (raw) {
+        localStorage.setItem(PROFILE_KEY, raw);
+      }
+    }
     if (!raw) {
       localStorage.setItem(PROFILE_KEY, JSON.stringify(DEFAULT_PROFILE));
       return DEFAULT_PROFILE;
@@ -98,7 +106,15 @@ export function saveProfile(profile: StudentProfile): void {
 export function getAttempts(): AttemptLog[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(ATTEMPTS_KEY);
+    let raw = localStorage.getItem(ATTEMPTS_KEY);
+    // Backward compatibility: migrate attempts from v2 or v1 if v3 empty
+    if (!raw) {
+      raw = localStorage.getItem("kiran_prep_attempts_log_v2") ||
+            localStorage.getItem("kiran_prep_attempts_log");
+      if (raw) {
+        localStorage.setItem(ATTEMPTS_KEY, raw);
+      }
+    }
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
