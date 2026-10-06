@@ -12,6 +12,7 @@ import {
   ThreeParagraphPlanSchema,
   ParagraphBuilderSchema,
   ParagraphRewriteSchema,
+  LogicQuestionGenerationSchema,
 } from "@/lib/ai/openrouter";
 
 const VAGUE_TERMS = [
@@ -820,6 +821,89 @@ Return JSON:
         const raw = await callOpenRouter(systemPrompt, "Evaluate 3-paragraph plan.", selectedModel);
         const validated = ThreeParagraphPlanSchema.parse(raw);
         return NextResponse.json({ ...validated, assessmentPrompt: systemPrompt });
+      }
+
+      /* ============================================================
+         Logic Reasoning: Dynamic Question Generation with Internal Quality Verification
+         ============================================================ */
+      case "generate_logic_question": {
+        const { targetCategory, difficulty } = payload || {};
+        const cat = targetCategory || "conditional_logic";
+        const diff = difficulty || 2;
+
+        if (!hasApiKey) {
+          return NextResponse.json(
+            { error: "No API key configured for dynamic question generation" },
+            { status: 503 }
+          );
+        }
+
+        const systemPrompt = `You are a specialized test designer for Grade 5 Australian selective school scholarship exams (e.g. EduTest, ACER, Victorian Selective).
+Generate ONE fresh, diagnostic multiple-choice logic question for:
+Category: "${cat}"
+Difficulty: Level ${diff} (1=Easy, 2=Medium, 3=Hard)
+
+STRICT QUALITY CONTROL & REQUIREMENTS:
+1. AGE APPROPRIATE: Designed for strong 10-11 year old students. Solvable in 30-90 seconds without specialist knowledge.
+2. ZERO AMBIGUITY: Exactly ONE unambiguously correct answer. All premises must be sufficient.
+3. QUALITY CONTROL VERIFICATION:
+   - verify that no alternate interpretation creates a second answer
+   - verify that all premises are sufficient
+   - verify answer explanation logically follows
+   - ensure 3 plausible distractors (not absurd giveaways)
+4. ERROR DIAGNOSIS: Provide 'commonErrorFeedback' mapping each wrong option (A, B, C, or D) to the likely reasoning error (e.g. reversed conditional, assumed converse, missed constraint, incomplete elimination).
+5. FORMAT: 4 options (A, B, C, D).
+
+Return JSON adhering strictly to:
+{
+  "id": "gen-logic-${Date.now()}",
+  "category": "${cat}",
+  "subSkill": "Specific logic sub-skill tested",
+  "difficulty": ${diff},
+  "premises": "Clear concise scenario context or rules",
+  "question": "The specific question prompt",
+  "options": [
+    { "id": "A", "text": "Option A" },
+    { "id": "B", "text": "Option B" },
+    { "id": "C", "text": "Option C" },
+    { "id": "D", "text": "Option D" }
+  ],
+  "correctAnswer": "A" | "B" | "C" | "D",
+  "explanation": "1-3 concise sentences explaining the reasoning method",
+  "commonErrorFeedback": {
+    "A": "Diagnostic note if A chosen incorrectly",
+    "B": "Diagnostic note if B chosen incorrectly",
+    "C": "Diagnostic note if C chosen incorrectly",
+    "D": "Diagnostic note if D chosen incorrectly"
+  },
+  "qualityVerification": {
+    "unambiguousCorrectAnswer": true,
+    "premisesSufficient": true,
+    "ageAppropriateGrade5": true,
+    "distractorsPlausible": true
+  }
+}`;
+
+        const raw = await callOpenRouter(
+          systemPrompt,
+          `Generate verified logic question for category ${cat}`,
+          selectedModel,
+          850
+        );
+        const validated = LogicQuestionGenerationSchema.parse(raw);
+
+        // Quality check rejection
+        if (
+          !validated.qualityVerification.unambiguousCorrectAnswer ||
+          !validated.qualityVerification.premisesSufficient
+        ) {
+          return NextResponse.json(
+            { error: "Question failed internal quality verification." },
+            { status: 422 }
+          );
+        }
+
+        return NextResponse.json(validated);
       }
 
       default:

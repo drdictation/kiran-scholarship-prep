@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
 import { getProfile, getAttempts, saveProfile } from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
+import { LogicDashboard } from "@/components/parent/LogicDashboard";
 import {
   BarChart3,
   Brain,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 
 export function ParentDashboard() {
+  const [subTab, setSubTab] = useState<"WRITING" | "LOGIC">("LOGIC");
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [attempts, setAttempts] = useState<AttemptLog[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("openai/gpt-6.1-sol");
@@ -167,6 +169,38 @@ export function ParentDashboard() {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto animate-fade-in">
+      {/* Sub-module Switcher (Logic Reasoning vs Writing) */}
+      <div className="flex items-center justify-between bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSubTab("LOGIC")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              subTab === "LOGIC"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+          >
+            <Brain className="w-4 h-4" />
+            <span>Logic Reasoning Analytics</span>
+          </button>
+          <button
+            onClick={() => setSubTab("WRITING")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              subTab === "WRITING"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>Writing &amp; Arguments Analytics</span>
+          </button>
+        </div>
+      </div>
+
+      {subTab === "LOGIC" ? (
+        <LogicDashboard />
+      ) : (
+        <>
       {/* Overview header */}
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
@@ -687,6 +721,8 @@ export function ParentDashboard() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

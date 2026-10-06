@@ -225,3 +225,27 @@ export const ParagraphRewriteSchema = z.object({
   feedback: z.string(),
   xpAwarded: z.number(),
 });
+
+export const LogicQuestionGenerationSchema = z.object({
+  id: z.string(),
+  category: z.string(),
+  subSkill: z.string(),
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  premises: z.string(),
+  question: z.string(),
+  options: z.array(
+    z.object({
+      id: z.enum(["A", "B", "C", "D"]),
+      text: z.string(),
+    })
+  ).length(4),
+  correctAnswer: z.enum(["A", "B", "C", "D"]),
+  explanation: z.string(),
+  commonErrorFeedback: z.record(z.string()).optional(),
+  qualityVerification: z.object({
+    unambiguousCorrectAnswer: z.boolean(),
+    premisesSufficient: z.boolean(),
+    ageAppropriateGrade5: z.boolean(),
+    distractorsPlausible: z.boolean(),
+  }),
+});

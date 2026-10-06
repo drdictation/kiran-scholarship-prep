@@ -55,7 +55,83 @@ export type ExerciseType =
   | "build_paragraph"
   | "argument_builder"
   | "fix_weak_link"
-  | "one_step_only";
+  | "one_step_only"
+  | "logic_reasoning";
+
+export type LogicCategory =
+  | "ordering_sequencing"
+  | "deductive_reasoning"
+  | "conditional_logic"
+  | "necessary_sufficient"
+  | "must_could_cannot"
+  | "elimination_reasoning"
+  | "truth_lie"
+  | "constraint_satisfaction"
+  | "pattern_recognition"
+  | "number_logic"
+  | "classification_odd_one"
+  | "pigeonhole_guarantee"
+  | "rule_testing_counterexample";
+
+export type PerceivedDifficulty = "EASY" | "MEDIUM" | "HARD";
+
+export interface LogicOption {
+  id: "A" | "B" | "C" | "D";
+  text: string;
+}
+
+export interface LogicQuestion {
+  id: string;
+  category: LogicCategory;
+  subSkill: string;
+  difficulty: 1 | 2 | 3; // 1: Easy, 2: Medium, 3: Hard
+  premises: string; // The situation or scenario
+  question: string;
+  options: LogicOption[];
+  correctAnswer: "A" | "B" | "C" | "D";
+  explanation: string; // 1-3 sentences explaining the method
+  commonErrorFeedback?: Record<string, string>; // e.g. "B": "Reversed conditional: you assumed A implies B means B implies A."
+}
+
+export interface LogicAttemptRecord {
+  questionId: string;
+  category: LogicCategory;
+  subSkill: string;
+  difficultyLevel: 1 | 2 | 3;
+  correctAnswer: "A" | "B" | "C" | "D";
+  studentAnswer: "A" | "B" | "C" | "D";
+  isCorrect: boolean;
+  perceivedDifficulty: PerceivedDifficulty;
+  responseTimeSeconds: number;
+  dateAttempted: string; // ISO string
+  feedback: string;
+  errorDiagnosis?: string;
+  xpEarned: number;
+}
+
+export interface LogicCategoryStat {
+  totalAttempts: number;
+  correctCount: number;
+  accuracy: number; // 0 - 100
+  medianResponseTime: number; // seconds
+  avgPerceivedScore: number; // 1 (Easy) to 3 (Hard)
+  easyCount: number;
+  mediumCount: number;
+  hardCount: number;
+  status: "secure" | "capable_effortful" | "recognised_weakness" | "misconception_risk" | "insufficient_data";
+  label: "Likely strength" | "Developing" | "Likely weakness" | "Misconception risk";
+}
+
+export interface LogicDiagnosticProfile {
+  totalAttempted: number;
+  overallAccuracy: number;
+  categories: Record<LogicCategory, LogicCategoryStat>;
+  calibrationScore: number; // 0 - 100 (how well perceived matches actual)
+  calibrationNotes: string;
+  strongCategories: LogicCategory[];
+  weakCategories: LogicCategory[];
+  misconceptionRiskCategories: LogicCategory[];
+}
 
 export type TransferStatus = "NEW" | "REPEATED" | "NEAR_TRANSFER" | "FAR_TRANSFER";
 
@@ -197,6 +273,7 @@ export interface StudentProfile {
   seenQuestions?: Record<string, number>; // questionId -> timestamp
   selectedModel?: string;
   googleDriveWebhookUrl?: string;
+  logicProfile?: LogicDiagnosticProfile;
 }
 
 export interface IdeaSprintEvaluation {

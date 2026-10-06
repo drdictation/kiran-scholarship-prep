@@ -45,6 +45,20 @@ export function generateAiAuditMarkdown(
 - **Sentence Combining:** ${profile.skillsMastery.sentence_combining || 0}%
 - **Planning Speed:** ${profile.skillsMastery.planning_speed || 0}%
 
+${
+  profile.logicProfile
+    ? `---
+
+## 🧠 Logic Reasoning Diagnostic Profile
+- **Total Questions Attempted:** ${profile.logicProfile.totalAttempted}
+- **Overall Accuracy:** ${profile.logicProfile.overallAccuracy}%
+- **Difficulty Calibration:** ${profile.logicProfile.calibrationScore}% (${profile.logicProfile.calibrationNotes})
+- **Likely Strengths:** ${profile.logicProfile.strongCategories.join(", ") || "None flagged yet"}
+- **Likely Weaknesses:** ${profile.logicProfile.weakCategories.join(", ") || "None flagged yet"}
+- **Misconception Alerts (Wrong + rated Easy):** ${profile.logicProfile.misconceptionRiskCategories.join(", ") || "None detected"}
+`
+    : ""
+}
 ---
 
 ## 📝 Individual Practice Attempts Audit Log

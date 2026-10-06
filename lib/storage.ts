@@ -4,11 +4,14 @@ import {
   SkillId,
   TopicDomain,
   TransferStatus,
+  LogicAttemptRecord,
 } from "@/types";
 import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
+import { computeLogicProfile } from "@/lib/logic-scoring";
 
 const PROFILE_KEY = "kiran_prep_student_profile_v3"; // Bumped version for clean transfer tracking & calibrated rubric
 const ATTEMPTS_KEY = "kiran_prep_attempts_log_v3";
+const LOGIC_ATTEMPTS_KEY = "kiran_prep_logic_attempts_v1";
 
 export const DEFAULT_PROFILE: StudentProfile = {
   name: "Kiran",
@@ -118,6 +121,90 @@ export function getAttempts(): AttemptLog[] {
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
+  }
+}
+
+export function getLogicAttempts(): LogicAttemptRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LOGIC_ATTEMPTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function logLogicAttempt(record: LogicAttemptRecord): void {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = getLogicAttempts();
+    const updated = [record, ...existing].slice(0, 500);
+    localStorage.setItem(LOGIC_ATTEMPTS_KEY, JSON.stringify(updated));
+
+    // Also update studentProfile.logicProfile and award XP
+    const profile = getProfile();
+    profile.logicProfile = computeLogicProfile(updated);
+    profile.totalXp += record.xpEarned;
+
+    // Recalculate level
+    let currentTier = LEVEL_TIERS[0];
+    for (const tier of LEVEL_TIERS) {
+      if (profile.totalXp >= tier.minXp) {
+        currentTier = tier;
+      } else {
+        break;
+      }
+    }
+    profile.level = currentTier.level;
+    profile.levelTitle = currentTier.title;
+
+    // Update streak
+    const today = new Date().toISOString().split("T")[0];
+    if (!profile.lastActiveDate) {
+      profile.streakDays = 1;
+      profile.lastActiveDate = today;
+    } else if (profile.lastActiveDate !== today) {
+      const lastActive = new Date(profile.lastActiveDate);
+      const curr = new Date(today);
+      const diffDays = Math.round(
+        (curr.getTime() - lastActive.getTime()) / (1000 * 3600 * 24)
+      );
+      if (diffDays === 1) {
+        profile.streakDays += 1;
+      } else if (diffDays > 1) {
+        profile.streakDays = 1;
+      }
+      profile.lastActiveDate = today;
+    }
+
+    saveProfile(profile);
+
+    // Also record general attempt log for parent overview & drive sync
+    logAttempt({
+      exerciseType: "logic_reasoning",
+      questionId: record.questionId,
+      score: record.isCorrect ? 100 : 0,
+      xpEarned: record.xpEarned,
+      durationSeconds: record.responseTimeSeconds,
+      feedback: record.feedback,
+      input: {
+        category: record.category,
+        subSkill: record.subSkill,
+        studentAnswer: record.studentAnswer,
+        correctAnswer: record.correctAnswer,
+        perceivedDifficulty: record.perceivedDifficulty,
+      },
+      details: {
+        isCorrect: record.isCorrect,
+        category: record.category,
+        subSkill: record.subSkill,
+        perceivedDifficulty: record.perceivedDifficulty,
+        errorDiagnosis: record.errorDiagnosis,
+      },
+      assessmentPrompt: `Grade 5 Australian Scholarship Logic Reasoning Diagnostic [${record.category} - ${record.subSkill}]`,
+    });
+  } catch (err) {
+    console.error("Failed to log logic attempt:", err);
   }
 }
 

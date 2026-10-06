@@ -24,6 +24,7 @@ import { OneStepOnly } from "@/components/games/OneStepOnly";
 import { RepeatVsAdd } from "@/components/games/RepeatVsAdd";
 import { SentenceForge } from "@/components/games/SentenceForge";
 import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
+import { LogicLab } from "@/components/games/LogicLab";
 import {
   Flame,
   Sparkles,
@@ -181,6 +182,15 @@ export function StudentHome() {
     );
   }
 
+  if (activeMode === "logic_reasoning") {
+    return (
+      <LogicLab
+        onBack={() => setActiveMode(null)}
+        onRefreshProfile={refreshProfile}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Profile & Streak Header Banner */}
@@ -273,6 +283,34 @@ export function StudentHome() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* New: LOGIC REASONING (Diagnostic & Targeted) */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("logic_reasoning")}
+            className="p-5 bg-gradient-to-br from-violet-50/90 to-indigo-100/60 rounded-2xl border-2 border-indigo-400 hover:border-indigo-600 hover:shadow-md transition-all text-left group flex flex-col justify-between ring-2 ring-indigo-400/20"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-200/90 text-indigo-950 px-2 py-0.5 rounded-full">
+                  New Diagnostic Module
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                Logic Reasoning
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Short 30–90s diagnostic puzzles: conditional logic, necessary vs sufficient, disproof, &amp; deduction.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-200 flex items-center justify-between text-xs font-bold text-indigo-700">
+              <span>Diagnostic &amp; Targeted</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
           {/* 1. Causal Chain */}
           <button
             type="button"
