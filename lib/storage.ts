@@ -1,8 +1,14 @@
-import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
+import {
+  StudentProfile,
+  AttemptLog,
+  SkillId,
+  TopicDomain,
+  TransferStatus,
+} from "@/types";
 import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
 
-const PROFILE_KEY = "kiran_prep_student_profile_v2"; // Bumped version to cleanly purge any old fake stats
-const ATTEMPTS_KEY = "kiran_prep_attempts_log_v2";
+const PROFILE_KEY = "kiran_prep_student_profile_v3"; // Bumped version for clean transfer tracking & calibrated rubric
+const ATTEMPTS_KEY = "kiran_prep_attempts_log_v3";
 
 export const DEFAULT_PROFILE: StudentProfile = {
   name: "Kiran",
@@ -13,11 +19,17 @@ export const DEFAULT_PROFILE: StudentProfile = {
   lastActiveDate: "",
   examDate: "",
   skillsMastery: {
+    // 5 Core Priority Skills
+    argument_formation: 0,
+    causal_progression: 0,
     concrete_evidence: 0,
+    paragraph_development: 0,
+    transfer_ability: 0,
+    // Supporting Skills
+    argument_distinction: 0,
     consequence_reasoning: 0,
     paragraph_progression: 0,
     prompt_fidelity: 0,
-    argument_distinction: 0,
     repeat_vs_add: 0,
     causal_reasoning: 0,
     example_generation: 0,
@@ -38,6 +50,7 @@ export const DEFAULT_PROFILE: StudentProfile = {
     science: { attempts: 0, avgScore: 0 },
     culture: { attempts: 0, avgScore: 0 },
   },
+  seenQuestions: {},
 };
 
 export const LEVEL_TIERS = [
@@ -62,16 +75,11 @@ export function getProfile(): StudentProfile {
       return DEFAULT_PROFILE;
     }
     const parsed = JSON.parse(raw);
-    // If old fake stats detected, reset cleanly
-    if (parsed.totalXp === 120 || parsed.streakDays === 3) {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(DEFAULT_PROFILE));
-      return DEFAULT_PROFILE;
-    }
-    // Ensure all skill keys exist cleanly
     parsed.skillsMastery = {
       ...DEFAULT_PROFILE.skillsMastery,
       ...(parsed.skillsMastery || {}),
     };
+    if (!parsed.seenQuestions) parsed.seenQuestions = {};
     return parsed;
   } catch {
     return DEFAULT_PROFILE;
@@ -97,9 +105,57 @@ export function getAttempts(): AttemptLog[] {
   }
 }
 
+export function determineTransferStatus(
+  questionId?: string,
+  domain?: TopicDomain
+): TransferStatus {
+  if (!questionId) return "NEW";
+  const profile = getProfile();
+  const seenTimes = profile.seenQuestions?.[questionId];
+  if (seenTimes && seenTimes > 0) {
+    return "REPEATED";
+  }
+  if (domain && profile.domainStats[domain]?.attempts > 2) {
+    return "NEAR_TRANSFER";
+  }
+  return "FAR_TRANSFER";
+}
+
+export function markQuestionSeen(questionId: string) {
+  if (!questionId) return;
+  const profile = getProfile();
+  if (!profile.seenQuestions) profile.seenQuestions = {};
+  profile.seenQuestions[questionId] = (profile.seenQuestions[questionId] || 0) + 1;
+  saveProfile(profile);
+}
+
+/**
+ * Pick an item from list, strictly prioritizing unseen questions first
+ */
+export function pickUnseenItem<T extends { id: string }>(items: T[]): T {
+  if (!items || items.length === 0) throw new Error("Empty items list");
+  const profile = getProfile();
+  const seenMap = profile.seenQuestions || {};
+
+  // Find items never seen
+  const unseen = items.filter((item) => !seenMap[item.id]);
+  if (unseen.length > 0) {
+    return unseen[Math.floor(Math.random() * unseen.length)];
+  }
+
+  // If all seen, pick the least frequently seen item
+  const sorted = [...items].sort((a, b) => (seenMap[a.id] || 0) - (seenMap[b.id] || 0));
+  return sorted[0];
+}
+
 export function logAttempt(attempt: Omit<AttemptLog, "id" | "timestamp">): AttemptLog {
+  const transferStatus =
+    attempt.transferStatus ||
+    determineTransferStatus(attempt.questionId, attempt.domain);
+
   const newAttempt: AttemptLog = {
     ...attempt,
+    transferStatus,
     id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     timestamp: Date.now(),
   };
@@ -107,17 +163,25 @@ export function logAttempt(attempt: Omit<AttemptLog, "id" | "timestamp">): Attem
   if (typeof window !== "undefined") {
     try {
       const existing = getAttempts();
-      const updated = [newAttempt, ...existing].slice(0, 200);
+      const updated = [newAttempt, ...existing].slice(0, 250);
       localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(updated));
     } catch (err) {
       console.error("Failed to log attempt:", err);
     }
   }
 
+  if (attempt.questionId) {
+    markQuestionSeen(attempt.questionId);
+  }
+
   updateProfileWithAttempt(newAttempt);
 
   const currentProfile = getProfile();
-  syncAttemptToGoogleDrive(currentProfile.googleDriveWebhookUrl || "", newAttempt, currentProfile);
+  syncAttemptToGoogleDrive(
+    currentProfile.googleDriveWebhookUrl || "",
+    newAttempt,
+    currentProfile
+  );
 
   return newAttempt;
 }
@@ -148,7 +212,9 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
   } else if (profile.lastActiveDate !== today) {
     const lastActive = new Date(profile.lastActiveDate);
     const curr = new Date(today);
-    const diffDays = Math.round((curr.getTime() - lastActive.getTime()) / (1000 * 3600 * 24));
+    const diffDays = Math.round(
+      (curr.getTime() - lastActive.getTime()) / (1000 * 3600 * 24)
+    );
     if (diffDays === 1) {
       profile.streakDays += 1;
     } else if (diffDays > 1) {
@@ -157,48 +223,96 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
     profile.lastActiveDate = today;
   }
 
-  // Update skill mastery using rolling weighted score
-  const updateRollingScore = (key: SkillId, score: number) => {
+  // Weight mastery updates heavily towards NEW and FAR_TRANSFER questions
+  // Repeated recognition questions get much lower weighting so they cannot produce false mastery
+  let learningWeight = 0.25;
+  if (attempt.transferStatus === "FAR_TRANSFER" || attempt.transferStatus === "NEW") {
+    learningWeight = 0.35;
+  } else if (attempt.transferStatus === "REPEATED") {
+    learningWeight = 0.08; // minimal weighting for repeated recognition
+  }
+
+  const updateRollingScore = (key: SkillId, score: number, customWeight?: number) => {
+    const weight = customWeight !== undefined ? customWeight : learningWeight;
     const current = profile.skillsMastery[key] || 0;
-    const updated = current === 0 ? Math.round(score) : Math.round(current * 0.8 + score * 0.2);
+    const updated =
+      current === 0
+        ? Math.round(score)
+        : Math.round(current * (1 - weight) + score * weight);
     profile.skillsMastery[key] = Math.max(0, Math.min(100, updated));
   };
 
   switch (attempt.exerciseType) {
-    case "idea_sprint":
+    case "argument_builder":
+      updateRollingScore("argument_formation", attempt.score);
       updateRollingScore("argument_distinction", attempt.score);
       break;
-    case "repeat_vs_add":
-      updateRollingScore("repeat_vs_add", attempt.score);
+
+    case "idea_sprint":
+      updateRollingScore("argument_formation", attempt.score);
+      updateRollingScore("argument_distinction", attempt.score);
       break;
+
+    case "causal_chain":
     case "what_happens_next":
+      updateRollingScore("causal_progression", attempt.score);
       updateRollingScore("consequence_reasoning", attempt.score);
       updateRollingScore("causal_reasoning", attempt.score);
       break;
+
+    case "fix_weak_link":
+      updateRollingScore("causal_progression", attempt.score);
+      break;
+
+    case "one_step_only":
+      updateRollingScore("causal_progression", attempt.score);
+      break;
+
     case "example_engine":
       updateRollingScore("concrete_evidence", attempt.score);
       updateRollingScore("example_generation", attempt.score);
       break;
-    case "sentence_forge":
-      updateRollingScore("sentence_combining", attempt.score);
-      break;
-    case "three_paragraph_plan":
-      updateRollingScore("planning_speed", attempt.score);
-      break;
+
+    case "build_paragraph":
     case "paragraph_builder":
+      updateRollingScore("paragraph_development", attempt.score);
       updateRollingScore("paragraph_progression", attempt.score);
       if (attempt.details?.promptFidelityScore !== undefined) {
         updateRollingScore("prompt_fidelity", attempt.details.promptFidelityScore);
       }
-      updateRollingScore("paragraph_link", attempt.score);
       break;
+
+    case "sentence_forge":
+      // Demoted: low weight
+      updateRollingScore("sentence_combining", attempt.score, 0.05);
+      break;
+
+    case "repeat_vs_add":
+      // Demoted diagnostic: minimal weight
+      updateRollingScore("repeat_vs_add", attempt.score, 0.05);
+      break;
+
+    case "three_paragraph_plan":
+      updateRollingScore("planning_speed", attempt.score);
+      break;
+  }
+
+  // Track transfer ability separately on unseen items
+  if (
+    attempt.transferStatus === "NEW" ||
+    attempt.transferStatus === "FAR_TRANSFER" ||
+    attempt.transferStatus === "NEAR_TRANSFER"
+  ) {
+    updateRollingScore("transfer_ability", attempt.score, 0.3);
   }
 
   // Update Domain stats if available
   if (attempt.domain && profile.domainStats[attempt.domain]) {
     const stats = profile.domainStats[attempt.domain];
     const newAttempts = stats.attempts + 1;
-    const newAvg = Math.round((stats.avgScore * stats.attempts + attempt.score) / newAttempts);
+    const newAvg = Math.round(
+      (stats.avgScore * stats.attempts + attempt.score) / newAttempts
+    );
     profile.domainStats[attempt.domain] = {
       attempts: newAttempts,
       avgScore: newAvg,
@@ -206,7 +320,11 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
   }
 
   // Update Personal Bests
-  if (attempt.exerciseType === "idea_sprint" && attempt.score >= 80 && attempt.durationSeconds > 0) {
+  if (
+    attempt.exerciseType === "idea_sprint" &&
+    attempt.score >= 80 &&
+    attempt.durationSeconds > 0
+  ) {
     const currentBest = profile.personalBests.fastestIdeaSprintSeconds;
     if (!currentBest || attempt.durationSeconds < currentBest) {
       profile.personalBests.fastestIdeaSprintSeconds = attempt.durationSeconds;

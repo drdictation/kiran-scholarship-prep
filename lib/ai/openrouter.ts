@@ -53,15 +53,34 @@ export async function callOpenRouter(
 export const IdeaSprintSchema = z.object({
   valid: z.boolean(),
   distinctCount: z.number().min(0).max(3),
+  totalRawScore: z.number().min(0).max(6).default(0),
+  scorePercentage: z.number().min(0).max(100).default(0),
   arguments: z.array(
     z.object({
       index: z.number(),
       text: z.string(),
+      score: z.number().min(0).max(2).default(0),
       relevant: z.boolean(),
       category: z.string().optional(),
+      isLabelOnly: z.boolean().optional(),
+      feedback: z.string().optional(),
     })
   ),
   duplicateNotes: z.array(z.string()).optional(),
+  feedback: z.string(),
+  xpAwarded: z.number(),
+});
+
+export const CausalChainSchema = z.object({
+  valid: z.boolean(),
+  score: z.number().min(0).max(5),
+  scorePercentage: z.number().min(0).max(100),
+  advancement: z.boolean(),
+  causalConnection: z.boolean(),
+  specificity: z.boolean(),
+  proportionality: z.boolean(),
+  noCircularity: z.boolean(),
+  severityInflationDetected: z.boolean().default(false),
   feedback: z.string(),
   xpAwarded: z.number(),
 });
@@ -75,7 +94,7 @@ export const WhatHappensNextSchema = z.object({
   isProportionate: z.boolean().default(true),
   severityInflationDetected: z.boolean().default(false),
   feedback: z.string(),
-  score: z.number().min(1).max(5),
+  score: z.number().min(0).max(5),
   xpAwarded: z.number(),
 });
 
@@ -99,7 +118,50 @@ export const ExampleEngineSchema = z.object({
   hasContext: z.boolean().optional(),
   hasObservableAction: z.boolean().optional(),
   feedback: z.string(),
-  score: z.number().min(1).max(5),
+  score: z.number().min(0).max(5),
+  xpAwarded: z.number(),
+});
+
+export const ArgumentBuilderSchema = z.object({
+  valid: z.boolean(),
+  score: z.number().min(0).max(3),
+  scorePercentage: z.number().min(0).max(100),
+  argumentQuality: z.enum([
+    "PROPOSITION_SPECIFIC",
+    "VAGUE_OR_INCOMPLETE",
+    "CATEGORY_RESTATEMENT",
+    "IRRELEVANT",
+  ]),
+  feedback: z.string(),
+  xpAwarded: z.number(),
+});
+
+export const BuildParagraphSchema = z.object({
+  valid: z.boolean(),
+  functionsDetected: z.object({
+    reason: z.boolean(),
+    explanation: z.boolean(),
+    example: z.boolean(),
+    consequence: z.boolean(),
+    link: z.boolean(),
+  }),
+  scores: z.object({
+    reasoningQuality: z.number().min(0).max(100),
+    repetition: z.number().min(0).max(100),
+    specificity: z.number().min(0).max(100),
+    clarity: z.number().min(0).max(100),
+  }),
+  overallScore: z.number().min(0).max(100),
+  feedback: z.string(),
+  xpAwarded: z.number(),
+});
+
+export const FixWeakLinkSchema = z.object({
+  valid: z.boolean(),
+  identifiedCorrectWeakIndex: z.boolean(),
+  rewriteScore: z.number().min(0).max(5),
+  scorePercentage: z.number().min(0).max(100),
+  feedback: z.string(),
   xpAwarded: z.number(),
 });
 

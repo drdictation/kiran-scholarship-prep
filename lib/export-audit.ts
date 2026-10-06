@@ -25,24 +25,25 @@ export function generateAiAuditMarkdown(
 > You are a senior educational learning scientist and scholarship exam writing coach.
 > Review Kiran's deliberate practice drills below. Please perform a detailed diagnostic audit addressing:
 >
-> 1. **SPEED VS. QUALITY TRADEOFF**: Is Kiran rushing through drills (e.g. typing quickly just to beat the timer) at the expense of logical depth and elaboration?
-> 2. **ARGUMENT DISTINCTNESS & VARIETY**: Are his points genuinely distinct (drawing from different lenses like Safety, Finance, Community, Nature, Fairness), or are they subtle synonyms repeating the same point?
-> 3. **CAUSAL DEVELOPMENT**: In consequence chains, did he advance the logic (*Point → Effect → Significance*), or did he produce circular reasoning?
-> 4. **GRADING & PROMPT AUDIT**: For each attempt, review the included **Assessment Prompt / Rubric**. Was the automated AI grader too generous, too harsh, or accurate?
-> 5. **NEXT COACHING PRIORITIES**: What are the top 2 concrete exercises his parents should focus on during offline coaching?
+> 1. **ARGUMENT FORMATION & CATEGORY-TO-CLAIM CONVERSION**: Did Kiran produce proposition-specific causal claims, or did he rely on memorized broad categories (e.g. "Health", "Money", "Environment", "Fairness")?
+> 2. **CAUSAL DEVELOPMENT & MECHANISM**: In causal chains, did he follow *Point → Immediate Effect → Further Consequence → Significance*, or did he jump to vague endings like "they become happier/successful" or circular restatements?
+> 3. **EVIDENCE CONCRETENESS**: Are his examples observable real-world scenarios demonstrating the argument, rather than restatements disguised with "for example"?
+> 4. **TRANSFER PERFORMANCE**: Did Kiran maintain high quality on completely novel/unseen questions (tagged \`NEW\` or \`FAR_TRANSFER\`)?
+> 5. **GRADING & PROMPT AUDIT**: For each attempt, review the included **Assessment Prompt / Rubric**. Was the automated AI grader appropriately strict?
 
 ---
 
-## 📊 Summary Metrics
-- **Concrete Evidence (Scene Quality):** ${profile.skillsMastery.concrete_evidence || profile.skillsMastery.example_generation || 0}%
-- **Consequence Reasoning (Proportionality):** ${profile.skillsMastery.consequence_reasoning || profile.skillsMastery.causal_reasoning || 0}%
-- **Paragraph Progression (5-Part Architecture):** ${profile.skillsMastery.paragraph_progression || 0}%
+## 📊 5 Core Scholarship Writing Metrics
+- **1. Argument Formation (Category → Claim):** ${profile.skillsMastery.argument_formation || 0}%
+- **2. Causal Progression (Point → Effect → Consequence):** ${profile.skillsMastery.causal_progression || profile.skillsMastery.consequence_reasoning || 0}%
+- **3. Concrete Evidence (Observable Scenarios):** ${profile.skillsMastery.concrete_evidence || 0}%
+- **4. Paragraph Development (5 Functions):** ${profile.skillsMastery.paragraph_development || profile.skillsMastery.paragraph_progression || 0}%
+- **5. Transfer Performance (Unseen Prompts):** ${profile.skillsMastery.transfer_ability || 0}%
+
+### Supporting Skills
 - **Prompt Fidelity:** ${profile.skillsMastery.prompt_fidelity || 0}%
-- **Argument Distinction:** ${profile.skillsMastery.argument_distinction || 0}%
-- **Avoids Repetition (Repeat vs Add):** ${profile.skillsMastery.repeat_vs_add || 0}%
 - **Sentence Combining:** ${profile.skillsMastery.sentence_combining || 0}%
-- **Planning Fluency:** ${profile.skillsMastery.planning_speed || 0}%
-- **Fastest Idea Sprint:** ${profile.personalBests.fastestIdeaSprintSeconds ? `${profile.personalBests.fastestIdeaSprintSeconds}s` : "None"}
+- **Planning Speed:** ${profile.skillsMastery.planning_speed || 0}%
 
 ---
 
@@ -59,10 +60,11 @@ export function generateAiAuditMarkdown(
     const timeStr = new Date(att.timestamp).toLocaleString("en-AU");
     md += `### Attempt #${idx + 1}: ${att.exerciseType.toUpperCase().replace(/_/g, " ")}\n`;
     md += `- **Timestamp:** ${timeStr}\n`;
-    md += `- **Topic / Question:** ${att.topic || "General Sentence Drill"}\n`;
+    md += `- **Transfer Status:** \`${att.transferStatus || "NEW"}\`\n`;
+    md += `- **Topic / Question:** ${att.topic || "General Component Drill"}\n`;
     if (att.domain) md += `- **Domain:** ${att.domain}\n`;
     md += `- **Time Used:** **${att.durationSeconds || 0} seconds**\n`;
-    md += `- **Score Awarded:** ${att.score}% (+${att.xpEarned} XP)\n`;
+    md += `- **Score Awarded:** **${att.score}%** (+${att.xpEarned} XP)\n`;
     md += `\n**Kiran's Submitted Answer:**\n`;
 
     if (typeof att.input === "string") {
@@ -76,10 +78,14 @@ export function generateAiAuditMarkdown(
       md += "```json\n" + JSON.stringify(att.input, null, 2) + "\n```\n\n";
     }
 
-    md += `**Automated Coach Feedback:**\n> ${att.feedback}\n\n`;
+    md += `**Automated Coach Diagnostic Feedback:**\n> ${att.feedback}\n\n`;
 
     if (att.misconception) {
       md += `**Flagged Misconception:** ${att.misconception}\n\n`;
+    }
+
+    if (att.details) {
+      md += `<details>\n<summary>📊 <strong>Diagnostic Details</strong></summary>\n\n\`\`\`json\n${JSON.stringify(att.details, null, 2)}\n\`\`\`\n</details>\n\n`;
     }
 
     if (att.assessmentPrompt) {
@@ -109,25 +115,35 @@ export function downloadFile(content: string, filename: string, mimeType: string
 }
 
 /**
- * Optional live sync to Google Drive via Google Apps Script Webhook
+ * Optional Google Drive / Google Sheets live webhook synchronization
  */
 export async function syncAttemptToGoogleDrive(
   webhookUrl: string,
   attempt: AttemptLog,
   profile: StudentProfile
 ) {
-  if (typeof window === "undefined") return;
+  if (!webhookUrl || typeof window === "undefined") return;
   try {
-    await fetch("/api/sync-sheet", {
+    await fetch(webhookUrl, {
       method: "POST",
+      mode: "no-cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        webhookUrl,
-        attempt,
-        profile,
+        timestamp: new Date(attempt.timestamp).toISOString(),
+        studentName: profile.name,
+        exerciseType: attempt.exerciseType,
+        transferStatus: attempt.transferStatus || "NEW",
+        topic: attempt.topic || "",
+        domain: attempt.domain || "",
+        durationSeconds: attempt.durationSeconds,
+        answer: attempt.input,
+        score: attempt.score,
+        xpEarned: attempt.xpEarned,
+        feedback: attempt.feedback,
+        assessmentPrompt: attempt.assessmentPrompt || "",
       }),
     });
   } catch (err) {
-    console.error("Google Drive sync error:", err);
+    console.error("Google Drive / Sheets sync failed (silent non-blocking):", err);
   }
 }

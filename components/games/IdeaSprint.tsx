@@ -5,7 +5,16 @@ import { Topic, IdeaSprintEvaluation } from "@/types";
 import { THINKING_LENSES } from "@/lib/content/seed-topics";
 import { logAttempt, getProfile } from "@/lib/storage";
 import { playSuccessChime, fireConfetti } from "@/lib/sound-effects";
-import { Timer, Sparkles, AlertCircle, CheckCircle2, ArrowRight, Lightbulb, Trophy } from "lucide-react";
+import {
+  Timer,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  Lightbulb,
+  Trophy,
+  ShieldAlert,
+} from "lucide-react";
 
 interface IdeaSprintProps {
   topic: Topic;
@@ -41,7 +50,7 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
 
   const handleSubmit = async () => {
     if (!arg1.trim() || !arg2.trim() || !arg3.trim()) {
-      alert("Please write three different reasons before submitting!");
+      alert("Please write three complete reasons before submitting!");
       return;
     }
 
@@ -64,24 +73,39 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
       const data: IdeaSprintEvaluation = await res.json();
       setResult(data);
 
-      if (data.distinctCount === 3) {
+      const totalRaw =
+        data.totalRawScore !== undefined
+          ? data.totalRawScore
+          : data.arguments.reduce((acc, a) => acc + (a.score || 0), 0);
+      const scorePct =
+        data.scorePercentage !== undefined
+          ? data.scorePercentage
+          : Math.round((totalRaw / 6) * 100);
+
+      if (scorePct >= 80) {
         playSuccessChime();
         fireConfetti();
       }
 
-      // Log attempt to persistent storage
-      const score = Math.round((data.distinctCount / 3) * 100);
+      // Log attempt to persistent storage with calibrated score
       logAttempt({
         exerciseType: "idea_sprint",
         topic: topic.text,
         domain: topic.domain,
+        questionId: topic.id,
         input: [arg1, arg2, arg3],
-        score,
-        xpEarned: data.xpAwarded || 40,
+        score: scorePct,
+        xpEarned: data.xpAwarded || (scorePct >= 80 ? 45 : scorePct >= 50 ? 25 : 10),
         durationSeconds: elapsedSeconds,
         feedback: data.feedback,
         assessmentPrompt: (data as any).assessmentPrompt,
-        details: { distinctCount: data.distinctCount, duplicateNotes: data.duplicateNotes },
+        details: {
+          totalRawScore: totalRaw,
+          scorePercentage: scorePct,
+          distinctCount: data.distinctCount,
+          duplicateNotes: data.duplicateNotes,
+          argScores: data.arguments.map((a) => a.score),
+        },
       });
     } catch (err) {
       console.error(err);
@@ -91,13 +115,35 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
     }
   };
 
+  const getScoreBadge = (score?: number) => {
+    if (score === 2) {
+      return (
+        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+          2/2 Complete Argument
+        </span>
+      );
+    }
+    if (score === 1) {
+      return (
+        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+          1/2 Vague Claim
+        </span>
+      );
+    }
+    return (
+      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200">
+        0/2 Label Only / Incomplete
+      </span>
+    );
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
       {/* Header & Topic */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-            Idea Sprint • {topic.domain.replace("_", " ")}
+            Idea Sprint • {topic.domain.replace(/_/g, " ")}
           </span>
           <h2 className="text-xl md:text-2xl font-bold text-slate-800 mt-2">
             &ldquo;{topic.text}&rdquo;
@@ -111,13 +157,15 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
 
       {!result ? (
         <div className="space-y-6">
-          {/* Instructions */}
-          <div className="flex items-start gap-3 bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-xl text-sm text-amber-900">
-            <Lightbulb className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <p>
-              Write <strong>three genuinely different reasons</strong> to support this view.
-              Avoid repeating the same point using different words!
-            </p>
+          {/* Strict Examiner Rule Banner */}
+          <div className="flex items-start gap-3 bg-amber-50/80 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-950">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong>Strict Scholarship Examiner Rule:</strong> Category labels like{" "}
+              <em>&ldquo;Health&rdquo;</em>, <em>&ldquo;Money&rdquo;</em>, or{" "}
+              <em>&ldquo;Environment&rdquo;</em> score <strong>0 marks</strong>. You must state a{" "}
+              <strong>complete claim</strong> explaining the specific mechanism.
+            </div>
           </div>
 
           {/* Thinking Lenses Scaffolds */}
@@ -156,8 +204,8 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
                 type="text"
                 value={arg1}
                 onChange={(e) => setArg1(e.target.value)}
-                placeholder="First distinct reason..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                placeholder="Write a complete claim, not just a category name..."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 text-sm"
                 autoFocus
               />
             </div>
@@ -171,7 +219,7 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
                 value={arg2}
                 onChange={(e) => setArg2(e.target.value)}
                 placeholder="Second distinct reason..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 text-sm"
               />
             </div>
 
@@ -184,7 +232,7 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
                 value={arg3}
                 onChange={(e) => setArg3(e.target.value)}
                 placeholder="Third distinct reason..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 text-sm"
               />
             </div>
           </div>
@@ -205,7 +253,7 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
               className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-sm transition-all"
             >
               {isSubmitting ? (
-                <>Checking your reasoning...</>
+                <>Checking Argument Quality...</>
               ) : (
                 <>
                   Submit Idea Sprint <ArrowRight className="w-4 h-4" />
@@ -217,45 +265,85 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
       ) : (
         /* Results View */
         <div className="space-y-6 animate-fade-in">
-          <div
-            className={`p-5 rounded-2xl border ${
-              result.distinctCount === 3
-                ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                : "bg-amber-50 border-amber-200 text-amber-950"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {result.distinctCount === 3 ? (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                ) : (
-                  <AlertCircle className="w-6 h-6 text-amber-600" />
+          {(() => {
+            const totalRaw =
+              result.totalRawScore !== undefined
+                ? result.totalRawScore
+                : result.arguments.reduce((acc, a) => acc + (a.score || 0), 0);
+            const scorePct =
+              result.scorePercentage !== undefined
+                ? result.scorePercentage
+                : Math.round((totalRaw / 6) * 100);
+
+            return (
+              <div
+                className={`p-5 rounded-2xl border ${
+                  scorePct >= 80
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                    : scorePct >= 50
+                    ? "bg-amber-50 border-amber-200 text-amber-950"
+                    : "bg-rose-50 border-rose-200 text-rose-950"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {scorePct >= 80 ? (
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-6 h-6 text-amber-600" />
+                    )}
+                    <span className="font-bold text-lg">
+                      {totalRaw}/6 Raw Marks ({scorePct}%)
+                    </span>
+                  </div>
+                  <span className="font-bold text-indigo-700 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100 flex items-center gap-1.5 text-xs">
+                    <Sparkles className="w-4 h-4 text-amber-500" /> +{result.xpAwarded} XP
+                  </span>
+                </div>
+
+                <p className="text-sm font-medium leading-relaxed mb-4">{result.feedback}</p>
+
+                {/* Individual Argument Scores Breakdown */}
+                <div className="space-y-2 bg-white/80 p-3.5 rounded-xl border border-slate-200/80 text-xs text-slate-800">
+                  <strong className="block text-slate-600 uppercase tracking-wider text-[10px]">
+                    Detailed Argument Breakdown:
+                  </strong>
+                  {result.arguments.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-lg bg-slate-50/70 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="font-semibold text-slate-900">
+                          {idx + 1}. &ldquo;{item.text}&rdquo;
+                        </div>
+                        {item.feedback && (
+                          <div className="text-[11px] text-slate-500">{item.feedback}</div>
+                        )}
+                      </div>
+                      <div className="shrink-0">{getScoreBadge(item.score)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {result.duplicateNotes && result.duplicateNotes.length > 0 && (
+                  <div className="mt-3 text-xs bg-white/70 p-3 rounded-lg border border-amber-300 text-amber-800 space-y-1">
+                    <strong>Examiner Note on Overlap:</strong>
+                    {result.duplicateNotes.map((note, idx) => (
+                      <div key={idx}>{note}</div>
+                    ))}
+                  </div>
                 )}
-                <span className="font-bold text-lg">
-                  {result.distinctCount}/3 Distinct Arguments
-                </span>
               </div>
-              <span className="font-bold text-indigo-700 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-500" /> +{result.xpAwarded} XP
-              </span>
-            </div>
-
-            <p className="text-sm font-medium leading-relaxed mb-3">{result.feedback}</p>
-
-            {result.duplicateNotes && result.duplicateNotes.length > 0 && (
-              <div className="mt-2 text-xs bg-white/70 p-3 rounded-lg border border-amber-300/60 text-amber-800 space-y-1">
-                <strong>Coach Note:</strong>
-                {result.duplicateNotes.map((note, idx) => (
-                  <div key={idx}>{note}</div>
-                ))}
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Speed & Stats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <span className="text-xs text-slate-500 font-semibold uppercase block">Time Taken</span>
+              <span className="text-xs text-slate-500 font-semibold uppercase block">
+                Time Taken
+              </span>
               <span className="text-2xl font-bold text-slate-800 font-mono">
                 {elapsedSeconds}s
               </span>
@@ -263,23 +351,21 @@ export function IdeaSprint({ topic, onComplete, onBack }: IdeaSprintProps) {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
               <div>
                 <span className="text-xs text-slate-500 font-semibold uppercase block">
-                  Quality Score
+                  Distinct Arguments
                 </span>
                 <span className="text-2xl font-bold text-indigo-600">
-                  {Math.round((result.distinctCount / 3) * 100)}%
+                  {result.distinctCount}/3
                 </span>
               </div>
-              {result.distinctCount === 3 && (
-                <Trophy className="w-7 h-7 text-amber-500" />
-              )}
+              {result.distinctCount === 3 && <Trophy className="w-7 h-7 text-amber-500" />}
             </div>
           </div>
 
-          {/* Buttons */}
+          {/* Continue button */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => onComplete(result.xpAwarded)}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all text-sm"
             >
               Continue
             </button>

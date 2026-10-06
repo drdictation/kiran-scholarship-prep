@@ -100,45 +100,47 @@ export function ParentDashboard() {
   const totalSeconds = attempts.reduce((acc, a) => acc + (a.durationSeconds || 0), 0);
   const totalMinutes = Math.round(totalSeconds / 60);
 
+  // 5 Primary scholarship metrics + supporting skills
   const skillsList: { id: SkillId; label: string; description: string; priority?: boolean }[] = [
     {
+      id: "argument_formation",
+      label: "1. Argument Formation",
+      description: "Turns broad category labels (health/money) into proposition-specific claims",
+      priority: true,
+    },
+    {
+      id: "causal_progression",
+      label: "2. Causal Progression",
+      description: "Point → Immediate Effect → Further Consequence → Significance (no vague/circular jumps)",
+      priority: true,
+    },
+    {
       id: "concrete_evidence",
-      label: "Concrete Evidence (Scene Quality)",
-      description: "WHO + WHERE + WHAT HAPPENS; avoids vague restatements and melodramatic leaps",
+      label: "3. Concrete Evidence",
+      description: "Creates observable illustrative scenarios demonstrating the argument",
       priority: true,
     },
     {
-      id: "consequence_reasoning",
-      label: "Consequence Reasoning (Proportionality)",
-      description: "Direct, realistic cause & effect; penalizes severity inflation (catastrophizing)",
+      id: "paragraph_development",
+      label: "4. Paragraph Development",
+      description: "Combines Reason, Explanation, Example, Consequence, and Link cohesively",
       priority: true,
     },
     {
-      id: "paragraph_progression",
-      label: "Paragraph Progression (5-Part)",
-      description: "SAY → WHY → EXAMPLE → RESULT → LINK; ensures each sentence moves argument forward",
+      id: "transfer_ability",
+      label: "5. Novelty & Transfer Ability",
+      description: "Performance on completely unseen prompts and unfamiliar domains",
       priority: true,
     },
     {
       id: "prompt_fidelity",
       label: "Prompt Fidelity",
-      description: "Answers the exact prompt asked without subtly re-scoping or changing the task",
-      priority: true,
-    },
-    {
-      id: "argument_distinction",
-      label: "Argument Distinction",
-      description: "Generates genuinely different arguments rather than synonyms",
-    },
-    {
-      id: "repeat_vs_add",
-      label: "Avoids Repetition (Repeat vs Add)",
-      description: "Detects paraphrasing vs genuine logical progression",
+      description: "Answers the exact prompt asked without subtly altering the task",
     },
     {
       id: "sentence_combining",
-      label: "Sentence Combining & Variety",
-      description: "Synthesizes ideas cleanly with logical conjunctions",
+      label: "Sentence Variety & Combining",
+      description: "Synthesizes simple clauses cleanly with logical conjunctions",
     },
     {
       id: "planning_speed",
@@ -147,7 +149,7 @@ export function ParentDashboard() {
     },
   ];
 
-  // Identify weakest skill to recommend for offline parent coaching (from skills that have attempts, or general)
+  // Identify weakest skill among priorities to recommend for offline parent coaching
   let lowestSkill = skillsList[0];
   let lowestScore = 100;
   let hasTrainedSkills = false;
@@ -170,13 +172,13 @@ export function ParentDashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-              Parent Insights & Analytics
+              Scholarship Diagnostic Dashboard
             </span>
             <h1 className="text-2xl font-black text-slate-900 mt-2">
               Kiran&apos;s Scholarship Writing Trajectory
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Real-time deliberate practice data across component persuasive writing skills.
+              Deliberate practice data across core argument formation, causal progression, and transfer metrics.
             </p>
           </div>
 
@@ -205,7 +207,7 @@ export function ParentDashboard() {
             <span className="text-2xl font-black text-slate-900 mt-1 block">
               {totalMinutes}m
             </span>
-            <span className="text-[11px] text-slate-500 font-medium">Total focus duration</span>
+            <span className="text-[11px] text-slate-500 font-medium">Total deliberate focus</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
@@ -220,14 +222,12 @@ export function ParentDashboard() {
 
           <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-700 block">
-              Best Sprint
+              Unseen Items
             </span>
             <span className="text-2xl font-black text-amber-950 mt-1 block">
-              {profile.personalBests.fastestIdeaSprintSeconds
-                ? `${profile.personalBests.fastestIdeaSprintSeconds}s`
-                : "—"}
+              {Object.keys(profile.seenQuestions || {}).length}
             </span>
-            <span className="text-[11px] text-amber-700 font-medium">3 distinct ideas</span>
+            <span className="text-[11px] text-amber-700 font-medium">Novel questions tested</span>
           </div>
         </div>
       </div>
@@ -244,12 +244,11 @@ export function ParentDashboard() {
                 Current Coaching Focus: {lowestSkill.label} ({lowestScore}%)
               </h3>
               <p className="text-xs text-amber-900/90 leading-relaxed">
-                When reviewing writing together, prompt Kiran:{" "}
+                When reviewing writing with Kiran, guide him through the causal mechanism:{" "}
                 <em>
-                  &ldquo;What happens because of this? And why does that consequence matter to real
-                  people?&rdquo;
+                  &ldquo;A category name like &lsquo;Money&rsquo; or &lsquo;Health&rsquo; is not an argument yet. What is the specific, immediate effect? And what happens next because of that?&rdquo;
                 </em>{" "}
-                This will prevent repetitive phrasing and deepen his causal reasoning.
+                Prompting for the missing step will eliminate vague &ldquo;they become happier/successful&rdquo; leaps.
               </p>
             </>
           ) : (
@@ -258,10 +257,114 @@ export function ParentDashboard() {
                 Ready for Practice!
               </h3>
               <p className="text-xs text-amber-900/90 leading-relaxed">
-                Kiran has not completed any drills yet. Once he completes Today&apos;s Quest or an individual exercise, personalized insights on his strengths and areas for improvement will automatically appear here.
+                Kiran has not completed any drills yet. Once he completes Today&apos;s Quest or an individual exercise, personalized diagnostic metrics on argument formation, causal progression, and transfer will automatically appear here.
               </p>
             </>
           )}
+        </div>
+      </div>
+
+      {/* 5 CORE SCHOLARSHIP METRICS (MAP 0-100) */}
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-indigo-600" /> Core Scholarship Writing Metrics (0–100)
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Calculated primarily from performance on <strong>unseen questions</strong> to measure true writing transfer rather than memorized recognition.
+            </p>
+          </div>
+          <span className="text-xs text-slate-400 font-medium">Target: &ge;75 (Exam Ready)</span>
+        </div>
+
+        <div className="space-y-5">
+          {skillsList.map((skill) => {
+            const score = profile.skillsMastery[skill.id] || 0;
+            let statusColor = "bg-slate-200";
+            let statusText = "Not started";
+
+            if (score >= 80) {
+              statusColor = "bg-emerald-500";
+              statusText = "Exam Ready";
+            } else if (score >= 65) {
+              statusColor = "bg-indigo-500";
+              statusText = "Competent";
+            } else if (score >= 45) {
+              statusColor = "bg-amber-500";
+              statusText = "Emerging";
+            } else if (score > 0) {
+              statusColor = "bg-rose-500";
+              statusText = "Developing";
+            }
+
+            return (
+              <div key={skill.id} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800">{skill.label}</span>
+                    {skill.priority && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
+                        Exam Priority
+                      </span>
+                    )}
+                    <span className="text-slate-400 ml-1 hidden sm:inline">
+                      • {skill.description}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-slate-700">
+                      {score > 0 ? `${score}%` : "—"}
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      {statusText}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${statusColor} rounded-full transition-all duration-500`}
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* TOPIC DOMAIN TRANSFER BREAKDOWN */}
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600" /> Topic Domain Transfer (10 Domains)
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Scholarship exams test abstract and unfamiliar prompts. We monitor practice across 10 domains to ensure Kiran&apos;s reasoning transfers across diverse subjects.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {Object.entries(profile.domainStats).map(([domainKey, stats]) => {
+            const formatted = domainKey.replace(/_/g, " ");
+            return (
+              <div
+                key={domainKey}
+                className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 text-center space-y-1"
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block truncate capitalize">
+                  {formatted}
+                </span>
+                <span className="text-lg font-black text-slate-800 block">
+                  {stats.attempts > 0 ? `${stats.avgScore}%` : "—"}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {stats.attempts} {stats.attempts === 1 ? "drill" : "drills"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -273,7 +376,7 @@ export function ParentDashboard() {
               <Cpu className="w-5 h-5 text-indigo-600" /> OpenRouter AI Model Selection
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Select which AI model powers Kiran&apos;s live feedback, argument distinction, and essay planning.
+              Select which AI model powers Kiran&apos;s live feedback, argument distinction, and causal evaluation.
             </p>
           </div>
           {modelSaveMsg && (
@@ -379,7 +482,7 @@ export function ParentDashboard() {
               Export Audit Dossier for AI Review
             </h2>
             <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
-              Export complete practice records including: <strong>1) Question</strong>, <strong>2) Time used</strong>, <strong>3) Kiran&apos;s answer</strong>, <strong>4) Grade awarded</strong>, and <strong>5) Exact Assessment Prompts</strong>. Use this to audit with an external AI (ChatGPT, Claude) whether he is optimizing for speed over quality or repeating arguments.
+              Export complete practice records including: <strong>1) Question &amp; Transfer Tag</strong>, <strong>2) Time used</strong>, <strong>3) Kiran&apos;s answer</strong>, <strong>4) Grade awarded (calibrated)</strong>, and <strong>5) Exact Assessment Prompts</strong>. Use this to audit with an external AI whether he is falling into category labels or circular leaps.
             </p>
           </div>
 
@@ -403,7 +506,7 @@ export function ParentDashboard() {
             <button
               type="button"
               onClick={handleDownloadJson}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
               title="Download raw JSON"
             >
               <Download className="w-3.5 h-3.5" />
@@ -475,6 +578,7 @@ export function ParentDashboard() {
   sheet.appendRow([
     d.timestamp,
     d.exerciseType,
+    d.transferStatus || "NEW",
     d.topic,
     d.durationSeconds + "s",
     JSON.stringify(d.answer),
@@ -494,129 +598,26 @@ export function ParentDashboard() {
         </div>
       </div>
 
-      {/* SKILL MASTERY MAP */}
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-600" /> Skill Mastery Map (0–100)
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Calculated from actual attempt accuracy, task difficulty, and independent completion.
-            </p>
-          </div>
-          <span className="text-xs text-slate-400 font-medium">Target: &ge;75 (Exam Ready)</span>
-        </div>
-
-        <div className="space-y-5">
-          {skillsList.map((skill) => {
-            const score = profile.skillsMastery[skill.id] || 0;
-            let statusColor = "bg-slate-200";
-            let statusText = "Not started";
-
-            if (score >= 75) {
-              statusColor = "bg-emerald-500";
-              statusText = "Exam Ready";
-            } else if (score >= 60) {
-              statusColor = "bg-indigo-500";
-              statusText = "Competent";
-            } else if (score >= 40) {
-              statusColor = "bg-amber-500";
-              statusText = "Emerging";
-            } else if (score > 0) {
-              statusColor = "bg-rose-500";
-              statusText = "Developing";
-            }
-
-            return (
-              <div key={skill.id} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800">{skill.label}</span>
-                    {skill.priority && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
-                        Exam Priority
-                      </span>
-                    )}
-                    <span className="text-slate-400 ml-1 hidden sm:inline">
-                      • {skill.description}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-700">
-                      {score > 0 ? `${score}%` : "—"}
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      {statusText}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${statusColor} rounded-full transition-all duration-500`}
-                    style={{ width: `${score}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* TOPIC DOMAIN TRANSFER BREAKDOWN */}
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-indigo-600" /> Topic Domain Transfer
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Scholarship exams test abstract and unfamiliar prompts. We monitor practice across 10
-            domains to ensure Kiran&apos;s reasoning transfers across diverse subjects.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {Object.entries(profile.domainStats).map(([domainKey, stats]) => {
-            const formatted = domainKey.replace(/_/g, " ");
-            return (
-              <div
-                key={domainKey}
-                className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 text-center space-y-1"
-              >
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block truncate capitalize">
-                  {formatted}
-                </span>
-                <span className="text-lg font-black text-slate-800 block">
-                  {stats.attempts > 0 ? `${stats.avgScore}%` : "—"}
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  {stats.attempts} {stats.attempts === 1 ? "drill" : "drills"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* RECENT ATTEMPTS & AI FEEDBACK AUDIT TRAIL */}
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
         <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-600" /> Practice Log &amp; Coach Feedback
+          <Clock className="w-5 h-5 text-indigo-600" /> Practice Log &amp; Diagnostic Feedback
         </h2>
 
         {attempts.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-sm bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            No completed exercises yet. When Kiran completes a drill, his responses, quality score,
-            and coach feedback will appear here in real time.
+            No completed exercises yet. When Kiran completes a drill, his responses, calibrated score, and coach feedback will appear here in real time.
           </div>
         ) : (
           <div className="space-y-4">
-            {attempts.slice(0, 10).map((att) => {
+            {attempts.slice(0, 15).map((att) => {
               const timeStr = new Date(att.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               });
+
+              const transferTag = att.transferStatus || "NEW";
+
               return (
                 <div
                   key={att.id}
@@ -627,31 +628,41 @@ export function ParentDashboard() {
                       <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] bg-white px-2 py-0.5 rounded border border-slate-200">
                         {att.exerciseType.replace(/_/g, " ")}
                       </span>
+
+                      {/* Transfer Status Badge */}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          transferTag === "FAR_TRANSFER"
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : transferTag === "NEAR_TRANSFER"
+                            ? "bg-sky-50 text-sky-700 border-sky-200"
+                            : transferTag === "REPEATED"
+                            ? "bg-slate-100 text-slate-600 border-slate-300"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
+                      >
+                        {transferTag}
+                      </span>
+
                       {att.details?.failureMode && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          att.details.failureMode === "GOOD"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-rose-50 text-rose-700 border-rose-200"
-                        }`}>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            att.details.failureMode === "GOOD"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-rose-50 text-rose-700 border-rose-200"
+                          }`}
+                        >
                           {att.details.failureMode}
                         </span>
                       )}
+
                       {att.details?.severityInflationDetected && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                          Severity Inflated
-                        </span>
-                      )}
-                      {att.details?.weakestField && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                          Weakest: {att.details.weakestField}
-                        </span>
-                      )}
-                      {att.details?.promptFidelityScore !== undefined && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
-                          Fidelity: {att.details.promptFidelityScore}%
+                          Catastrophized Leap
                         </span>
                       )}
                     </div>
+
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
                         Score: {att.score}% (+{att.xpEarned} XP)
@@ -667,7 +678,7 @@ export function ParentDashboard() {
                   )}
 
                   <div className="text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200">
-                    <strong className="text-indigo-600 block mb-0.5">Coach Feedback:</strong>
+                    <strong className="text-indigo-600 block mb-0.5">Coach Diagnostic:</strong>
                     {att.feedback}
                   </div>
                 </div>

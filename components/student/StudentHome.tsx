@@ -2,21 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { StudentProfile, ExerciseType } from "@/types";
-import { getProfile, LEVEL_TIERS } from "@/lib/storage";
+import { getProfile, LEVEL_TIERS, pickUnseenItem } from "@/lib/storage";
 import { SEED_TOPICS } from "@/lib/content/seed-topics";
 import {
-  SEED_WHAT_HAPPENS_NEXT,
+  SEED_CAUSAL_CHAINS,
+  SEED_ARGUMENT_BUILDER,
   SEED_EXAMPLE_PROMPTS,
+  SEED_FIX_WEAK_LINK,
+  SEED_ONE_STEP_ONLY,
+  SEED_BUILD_PARAGRAPH,
   SEED_SENTENCE_FORGE,
 } from "@/lib/content/seed-drills";
 import { DailyQuestSession } from "@/components/student/DailyQuestSession";
 import { IdeaSprint } from "@/components/games/IdeaSprint";
-import { RepeatVsAdd } from "@/components/games/RepeatVsAdd";
-import { WhatHappensNext } from "@/components/games/WhatHappensNext";
+import { CausalChain } from "@/components/games/CausalChain";
+import { ArgumentBuilder } from "@/components/games/ArgumentBuilder";
+import { BuildTheParagraph } from "@/components/games/BuildTheParagraph";
 import { ExampleEngine } from "@/components/games/ExampleEngine";
+import { FixWeakLink } from "@/components/games/FixWeakLink";
+import { OneStepOnly } from "@/components/games/OneStepOnly";
+import { RepeatVsAdd } from "@/components/games/RepeatVsAdd";
 import { SentenceForge } from "@/components/games/SentenceForge";
 import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
-import { ParagraphBuilder } from "@/components/games/ParagraphBuilder";
 import {
   Flame,
   Sparkles,
@@ -28,6 +35,10 @@ import {
   Trophy,
   ShieldCheck,
   TrendingUp,
+  Layers,
+  Footprints,
+  Link2Off,
+  PenTool,
 } from "lucide-react";
 
 export function StudentHome() {
@@ -62,8 +73,74 @@ export function StudentHome() {
     );
   }
 
+  if (activeMode === "argument_builder") {
+    const prompt = pickUnseenItem(SEED_ARGUMENT_BUILDER);
+    return (
+      <ArgumentBuilder
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "causal_chain" || activeMode === "what_happens_next") {
+    const prompt = pickUnseenItem(SEED_CAUSAL_CHAINS);
+    return (
+      <CausalChain
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "build_paragraph" || activeMode === "paragraph_builder") {
+    const prompt = pickUnseenItem(SEED_BUILD_PARAGRAPH);
+    return (
+      <BuildTheParagraph
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "example_engine") {
+    const prompt = pickUnseenItem(SEED_EXAMPLE_PROMPTS);
+    return (
+      <ExampleEngine
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "fix_weak_link") {
+    const prompt = pickUnseenItem(SEED_FIX_WEAK_LINK);
+    return (
+      <FixWeakLink
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
+  if (activeMode === "one_step_only") {
+    const prompt = pickUnseenItem(SEED_ONE_STEP_ONLY);
+    return (
+      <OneStepOnly
+        prompt={prompt}
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
   if (activeMode === "idea_sprint") {
-    const randomTopic = SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
+    const randomTopic = pickUnseenItem(SEED_TOPICS);
     return (
       <IdeaSprint
         topic={randomTopic}
@@ -82,47 +159,11 @@ export function StudentHome() {
     );
   }
 
-  if (activeMode === "what_happens_next") {
-    const randomPrompt =
-      SEED_WHAT_HAPPENS_NEXT[Math.floor(Math.random() * SEED_WHAT_HAPPENS_NEXT.length)];
-    return (
-      <WhatHappensNext
-        prompt={randomPrompt}
-        onComplete={refreshProfile}
-        onBack={() => setActiveMode(null)}
-      />
-    );
-  }
-
-  if (activeMode === "example_engine") {
-    const randomPrompt =
-      SEED_EXAMPLE_PROMPTS[Math.floor(Math.random() * SEED_EXAMPLE_PROMPTS.length)];
-    return (
-      <ExampleEngine
-        prompt={randomPrompt}
-        onComplete={refreshProfile}
-        onBack={() => setActiveMode(null)}
-      />
-    );
-  }
-
   if (activeMode === "sentence_forge") {
-    const randomPrompt =
-      SEED_SENTENCE_FORGE[Math.floor(Math.random() * SEED_SENTENCE_FORGE.length)];
+    const prompt = pickUnseenItem(SEED_SENTENCE_FORGE);
     return (
       <SentenceForge
-        prompt={randomPrompt}
-        onComplete={refreshProfile}
-        onBack={() => setActiveMode(null)}
-      />
-    );
-  }
-
-  if (activeMode === "paragraph_builder") {
-    const randomTopic = SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
-    return (
-      <ParagraphBuilder
-        topic={randomTopic}
+        prompt={prompt}
         onComplete={refreshProfile}
         onBack={() => setActiveMode(null)}
       />
@@ -130,7 +171,7 @@ export function StudentHome() {
   }
 
   if (activeMode === "three_paragraph_plan") {
-    const randomTopic = SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
+    const randomTopic = pickUnseenItem(SEED_TOPICS);
     return (
       <ThreeParagraphPlan
         topic={randomTopic}
@@ -161,7 +202,7 @@ export function StudentHome() {
               Ready to write, {profile.name}?
             </h1>
             <p className="text-indigo-100 text-sm mt-1">
-              Deliberate micro-drills to sharpen your scholarship persuasive writing.
+              Deliberate micro-drills to develop complete arguments and deep causal chains.
             </p>
           </div>
 
@@ -181,7 +222,7 @@ export function StudentHome() {
             <div className="text-[11px] text-indigo-200 mt-2 flex items-center justify-between">
               <span>Next title:</span>
               <span className="font-semibold text-white">
-                {nextTier ? nextTier.title : "Legend"}
+                {nextTier ? nextTier.title : "Writing Grandmaster"}
               </span>
             </div>
           </div>
@@ -194,7 +235,7 @@ export function StudentHome() {
           <div className="space-y-2 max-w-lg">
             <div className="flex items-center gap-2">
               <span className="bg-indigo-100 text-indigo-800 text-xs font-extrabold uppercase px-3 py-1 rounded-full flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 fill-indigo-600 text-indigo-600" /> Recommended Daily Mission
+                <Zap className="w-3.5 h-3.5 fill-indigo-600 text-indigo-600" /> Priority Scholarship Quest
               </span>
               <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" /> 8–10 mins
@@ -202,15 +243,14 @@ export function StudentHome() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900">Today&apos;s Training Quest</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              3 fast targeted exercises: Warm up spotting repetition, sprint for distinct ideas,
-              and build deep causal chains.
+              3 focused micro-drills targeting your main growth areas: convert broad category lenses into full arguments, build logical 3-stage causal chains, and integrate complete persuasive paragraphs.
             </p>
-            <div className="flex items-center gap-4 text-xs font-medium text-slate-500 pt-1">
-              <span>1. Repeat vs Add</span>
+            <div className="flex items-center gap-3 text-xs font-semibold text-indigo-700 pt-1">
+              <span>1. Category &rarr; Argument</span>
               <span>•</span>
-              <span>2. Idea Sprint</span>
+              <span>2. Causal Progression</span>
               <span>•</span>
-              <span>3. Consequence Chain</span>
+              <span>3. Paragraph Development</span>
             </div>
           </div>
 
@@ -223,86 +263,101 @@ export function StudentHome() {
         </div>
       </div>
 
-      {/* SKILL PRACTICE GRID */}
+      {/* HIGH PRIORITY SKILL DRILLS */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <Target className="w-5 h-5 text-indigo-600" /> Practice a Specific Skill
+            <Target className="w-5 h-5 text-indigo-600" /> High-Priority Component Drills
           </h2>
-          <span className="text-xs text-slate-500">Pick any individual drill (1–3 min)</span>
+          <span className="text-xs text-slate-500">Pick any individual skill (1–3 min)</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Idea Sprint */}
+          {/* 1. Causal Chain */}
           <button
             type="button"
-            onClick={() => setActiveMode("idea_sprint")}
-            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+            onClick={() => setActiveMode("causal_chain")}
+            className="p-5 bg-gradient-to-br from-emerald-50/70 to-emerald-100/40 rounded-2xl border-2 border-emerald-300 hover:border-emerald-600 hover:shadow-md transition-all text-left group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Idea Sprint
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Generate 3 genuinely distinct arguments under timed conditions.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600">
-              <span>Distinctness Drill</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </button>
-
-          {/* Repeat vs Add */}
-          <button
-            type="button"
-            onClick={() => setActiveMode("repeat_vs_add")}
-            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
-                Repeat vs Add
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Quickly spot whether a sentence advances reasoning or only echoes it.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-600">
-              <span>Metacognition Drill</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </button>
-
-          {/* What Happens Next */}
-          <button
-            type="button"
-            onClick={() => setActiveMode("what_happens_next")}
-            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
                 <TrendingUp className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-                What Happens Next?
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
+                  Priority #1
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                Causal Chain
               </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Master consequence chains: Point &rarr; Result &rarr; Why it matters.
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Point &rarr; Immediate Effect &rarr; Further Consequence &rarr; Significance. No vague jumps or repetition.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-600">
-              <span>Causal Chain Drill</span>
+            <div className="mt-4 pt-3 border-t border-emerald-200 flex items-center justify-between text-xs font-bold text-emerald-700">
+              <span>Logical Progression</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
 
-          {/* Example Engine */}
+          {/* 2. Build the Paragraph */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("build_paragraph")}
+            className="p-5 bg-gradient-to-br from-indigo-50/80 to-indigo-100/50 rounded-2xl border-2 border-indigo-300 hover:border-indigo-600 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                <PenTool className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-200/80 text-indigo-800 px-2 py-0.5 rounded-full">
+                  Advanced Priority
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Build the Paragraph
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Combine Reason, Explanation, Observable Example, Consequence, and Link into a cohesive paragraph.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-200 flex items-center justify-between text-xs font-bold text-indigo-700">
+              <span>5-Function Architecture</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 3. Argument Builder */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("argument_builder")}
+            className="p-5 bg-gradient-to-br from-sky-50/70 to-sky-100/40 rounded-2xl border-2 border-sky-300 hover:border-sky-600 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-sky-200/80 text-sky-900 px-2 py-0.5 rounded-full">
+                  Core Diagnostic
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
+                Argument Builder
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Take broad lenses like &ldquo;Fairness&rdquo; or &ldquo;Health&rdquo; and convert them into complete claims.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-sky-200 flex items-center justify-between text-xs font-bold text-sky-700">
+              <span>Category &rarr; Argument</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 4. Example Engine */}
           <button
             type="button"
             onClick={() => setActiveMode("example_engine")}
@@ -316,131 +371,159 @@ export function StudentHome() {
                 Example Engine
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Produce concrete, specific evidence instead of vague restatements.
+                Produce an observable scene demonstrating the argument without relying on artificial character names.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-600">
-              <span>Evidence Drill</span>
+              <span>Observable Evidence</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
 
-          {/* Sentence Forge */}
+          {/* 5. Fix the Weak Link */}
           <button
             type="button"
-            onClick={() => setActiveMode("sentence_forge")}
+            onClick={() => setActiveMode("fix_weak_link")}
+            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-amber-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Link2Off className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                Fix the Weak Link
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Spot unsupported leaps or vague outcomes in a 3-step chain and rewrite only the flawed sentence.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700">
+              <span>Detect & Repair Leaps</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 6. One Step Only */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("one_step_only")}
+            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Footprints className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                One Step Only
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Train causal proximity: identify the immediate direct effect before taking larger logical jumps.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700">
+              <span>Causal Proximity</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 7. Idea Sprint */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("idea_sprint")}
             className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Zap className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 group-hover:text-sky-600 transition-colors">
-                Sentence Forge
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Combine 3 choppy sentences using transitions (*although, because, while*).
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sky-600">
-              <span>Synthesis Drill</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </button>
-
-          {/* Paragraph Builder */}
-          <button
-            type="button"
-            onClick={() => setActiveMode("paragraph_builder")}
-            className="p-5 bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-2xl border-2 border-indigo-300 hover:border-indigo-600 hover:shadow-md transition-all text-left group flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                <Target className="w-5 h-5" />
-              </div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-200/80 text-indigo-800 px-2 py-0.5 rounded-full">
-                  Exam High-Yield
-                </span>
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Paragraph Builder
+                Idea Sprint (Calibrated)
               </h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Train the 5-part architecture: SAY → WHY → EXAMPLE → RESULT → LINK with deliberate rewrite.
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Generate 3 proposition-specific arguments. Category names score 0 marks.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-indigo-200/70 flex items-center justify-between text-xs font-bold text-indigo-700">
-              <span>Progression & Architecture</span>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600">
+              <span>Proposition Claims</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
 
-          {/* Mini Boss: 3-Paragraph Plan */}
+          {/* 8. 3-Paragraph Plan */}
           <button
             type="button"
             onClick={() => setActiveMode("three_paragraph_plan")}
-            className="p-5 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-300 hover:border-amber-500 hover:shadow-md transition-all text-left group flex flex-col justify-between"
+            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-amber-400 hover:shadow-md transition-all text-left group flex flex-col justify-between"
           >
             <div>
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
                 Mini Boss: 3-Paragraph Plan
               </h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Outline an entire persuasive argument under exam-style conditions.
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Blueprint an entire persuasive essay with distinct arguments under exam timing.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs font-bold text-amber-700">
-              <span>Exam Prep Challenge</span>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700">
+              <span>Essay Architecture</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 9. Sentence Forge (Demoted) */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("sentence_forge")}
+            className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-left group flex flex-col justify-between opacity-80"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center mb-3">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                  Relative Strength
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-800">Sentence Forge</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Combine 3 simple sentences using conjunctions. (Demoted: not a primary bottleneck).
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-slate-600">
+              <span>Sentence Combining (+15 XP)</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* 10. Repeat vs Add (Diagnostic Only) */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("repeat_vs_add")}
+            className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-left group flex flex-col justify-between opacity-80"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center mb-3">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                  Diagnostic Check Only
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-800">Repeat vs Add</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Occasional check (max 3 novel questions). Not included in routine daily practice.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-slate-600">
+              <span>Diagnostic Mini-Check (+10 XP)</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
         </div>
-      </div>
-
-      {/* PERSONAL BEST CARD */}
-      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-            <Trophy className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Personal Record
-            </span>
-            {profile.personalBests.fastestIdeaSprintSeconds ? (
-              <>
-                <div className="text-base font-bold text-slate-800">
-                  3 Distinct Arguments in{" "}
-                  <span className="text-indigo-600">
-                    {profile.personalBests.fastestIdeaSprintSeconds} seconds
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Focus on distinct reasoning first; speed naturally follows!
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-base font-bold text-slate-800">
-                  No speed record set yet
-                </div>
-                <p className="text-xs text-slate-500">
-                  Complete an Idea Sprint with 3 distinct arguments to set your first record!
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-        <button
-          onClick={() => setActiveMode("idea_sprint")}
-          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm whitespace-nowrap"
-        >
-          {profile.personalBests.fastestIdeaSprintSeconds ? "Beat Record →" : "Set First Record →"}
-        </button>
       </div>
     </div>
   );
