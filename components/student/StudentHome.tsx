@@ -25,6 +25,7 @@ import { RepeatVsAdd } from "@/components/games/RepeatVsAdd";
 import { SentenceForge } from "@/components/games/SentenceForge";
 import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
 import { LogicLab } from "@/components/games/LogicLab";
+import { ClearAndComplete } from "@/components/games/ClearAndComplete";
 import {
   Flame,
   Sparkles,
@@ -191,6 +192,15 @@ export function StudentHome() {
     );
   }
 
+  if (activeMode === "clear_and_complete") {
+    return (
+      <ClearAndComplete
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Profile & Streak Header Banner */}
@@ -283,6 +293,36 @@ export function StudentHome() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Priority: CLEAR & COMPLETE REASONING DRILL */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("clear_and_complete")}
+            className="p-5 bg-gradient-to-br from-indigo-50/90 via-sky-50/70 to-indigo-100/60 rounded-2xl border-2 border-indigo-500 hover:border-indigo-700 hover:shadow-lg transition-all text-left group flex flex-col justify-between ring-2 ring-indigo-500/20 col-span-1 md:col-span-2 lg:col-span-1"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">
+                  Targeted Calibration Drill
+                </span>
+                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                  3 Task Types
+                </span>
+              </div>
+              <h3 className="font-black text-slate-900 group-hover:text-indigo-700 transition-colors text-base">
+                Clear &amp; Complete
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Train the middle point: Bridge Missing Steps, Say It Clearly from facts, and Cut the Waste from runaway causal chains.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-200 flex items-center justify-between text-xs font-bold text-indigo-700">
+              <span>Zero Wasted Reasoning</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
           {/* New: LOGIC REASONING (Diagnostic & Targeted) */}
           <button
             type="button"

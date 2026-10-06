@@ -249,3 +249,38 @@ export const LogicQuestionGenerationSchema = z.object({
     distractorsPlausible: z.boolean(),
   }),
 });
+
+export const ClearAndCompleteSchema = z.object({
+  valid: z.boolean(),
+  scorePercentage: z.number().min(0).max(100),
+  logicalCompleteness: z.number().min(1).max(5),
+  efficiency: z.number().min(1).max(5),
+  clarity: z.number().min(1).max(5),
+  sentenceControl: z.number().min(1).max(5),
+  precision: z.number().min(1).max(5),
+  diagnoses: z.array(
+    z.enum([
+      "CLEAR_COMPLETE",
+      "UNDEREXPLAINED",
+      "MISSING_LOGICAL_STEP",
+      "RESTATES_CLAIM",
+      "OVEREXPLAINED",
+      "UNNECESSARY_CAUSAL_EXTENSION",
+      "REPETITIVE",
+      "AWKWARD_CONSTRUCTION",
+      "OVERGENERALISATION",
+      "OFF_TOPIC",
+    ])
+  ),
+  feedback: z.string(),
+  modelAnswer: z.string(),
+  xpAwarded: z.number(),
+});
+
+export const ClearAndCompleteRewriteSchema = z.object({
+  valid: z.boolean(),
+  improved: z.boolean(),
+  scorePercentage: z.number().min(0).max(100),
+  feedback: z.string(),
+  xpAwarded: z.number(),
+});

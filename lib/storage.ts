@@ -52,6 +52,11 @@ export const DEFAULT_PROFILE: StudentProfile = {
     values: { attempts: 0, avgScore: 0 },
     science: { attempts: 0, avgScore: 0 },
     culture: { attempts: 0, avgScore: 0 },
+    transport: { attempts: 0, avgScore: 0 },
+    community: { attempts: 0, avgScore: 0 },
+    conservation: { attempts: 0, avgScore: 0 },
+    fairness: { attempts: 0, avgScore: 0 },
+    everyday_objects: { attempts: 0, avgScore: 0 },
   },
   seenQuestions: {},
 };
@@ -397,6 +402,12 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
 
     case "three_paragraph_plan":
       updateRollingScore("planning_speed", attempt.score);
+      break;
+
+    case "clear_and_complete":
+      updateRollingScore("causal_progression", attempt.score, 0.35);
+      updateRollingScore("consequence_reasoning", attempt.score, 0.35);
+      updateRollingScore("causal_reasoning", attempt.score, 0.35);
       break;
   }
 

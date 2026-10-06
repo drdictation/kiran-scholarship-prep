@@ -33,7 +33,12 @@ export type TopicDomain =
   | "health"
   | "values"
   | "science"
-  | "culture";
+  | "culture"
+  | "transport"
+  | "community"
+  | "conservation"
+  | "fairness"
+  | "everyday_objects";
 
 export interface Topic {
   id: string;
@@ -56,7 +61,70 @@ export type ExerciseType =
   | "argument_builder"
   | "fix_weak_link"
   | "one_step_only"
-  | "logic_reasoning";
+  | "logic_reasoning"
+  | "clear_and_complete";
+
+export type ClearAndCompleteTaskType =
+  | "build_the_bridge"
+  | "say_it_clearly"
+  | "cut_the_waste";
+
+export type ClearAndCompleteDiagnosis =
+  | "CLEAR_COMPLETE"
+  | "UNDEREXPLAINED"
+  | "MISSING_LOGICAL_STEP"
+  | "RESTATES_CLAIM"
+  | "OVEREXPLAINED"
+  | "UNNECESSARY_CAUSAL_EXTENSION"
+  | "REPETITIVE"
+  | "AWKWARD_CONSTRUCTION"
+  | "OVERGENERALISATION"
+  | "OFF_TOPIC";
+
+export interface ClearAndCompletePrompt {
+  id: string;
+  taskType: ClearAndCompleteTaskType;
+  title: string;
+  domain: TopicDomain;
+  difficulty: "easy" | "standard" | "hard";
+  timeLimitSeconds: number; // easy: 45, standard: 60, hard: 75-90
+  context: {
+    // For build_the_bridge:
+    pointA?: string;
+    conclusionC?: string;
+    // For say_it_clearly:
+    facts?: string[];
+    question?: string;
+    // For cut_the_waste:
+    originalText?: string;
+    goalProposition?: string;
+  };
+  modelAnswer: string;
+  targetMechanismTip?: string;
+}
+
+export interface ClearAndCompleteEvaluation {
+  valid: boolean;
+  scorePercentage: number; // 0 - 100
+  logicalCompleteness: number; // 1 - 5
+  efficiency: number; // 1 - 5
+  clarity: number; // 1 - 5
+  sentenceControl: number; // 1 - 5
+  precision: number; // 1 - 5
+  diagnoses: ClearAndCompleteDiagnosis[];
+  feedback: string; // Concrete Grade 5 feedback identifying where reasoning ended or missing bridge
+  modelAnswer: string;
+  xpAwarded: number;
+  assessmentPrompt?: string;
+}
+
+export interface ClearAndCompleteRewriteEvaluation {
+  valid: boolean;
+  improved: boolean;
+  scorePercentage: number;
+  feedback: string;
+  xpAwarded: number;
+}
 
 export type LogicCategory =
   | "ordering_sequencing"

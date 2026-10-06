@@ -13,6 +13,8 @@ import {
   ParagraphBuilderSchema,
   ParagraphRewriteSchema,
   LogicQuestionGenerationSchema,
+  ClearAndCompleteSchema,
+  ClearAndCompleteRewriteSchema,
 } from "@/lib/ai/openrouter";
 
 const VAGUE_TERMS = [
@@ -903,6 +905,196 @@ Return JSON adhering strictly to:
           );
         }
 
+        return NextResponse.json(validated);
+      }
+
+      /* ============================================================
+         CLEAR & COMPLETE: REASONING DRILL (Calibrated for Grade 5 Scholarship)
+         ============================================================ */
+      case "clear_and_complete": {
+        const {
+          taskType,
+          context,
+          modelAnswer,
+          targetMechanismTip,
+          studentText,
+        } = payload;
+
+        const cleanText = (studentText || "").trim();
+
+        if (!hasApiKey) {
+          // Heuristic fallback if API key is absent
+          const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+          const isTooShort = wordCount < 5;
+          const isRunaway = wordCount > 28;
+
+          const completeness = isTooShort ? 2 : 4;
+          const efficiency = isRunaway ? 2 : 5;
+          const clarity = 4;
+          const sentenceCtrl = 4;
+          const precision = 4;
+
+          const diagnoses = [];
+          if (isTooShort) diagnoses.push("UNDEREXPLAINED");
+          else if (isRunaway) diagnoses.push("OVEREXPLAINED");
+          else diagnoses.push("CLEAR_COMPLETE");
+
+          const score = Math.round(((completeness + efficiency + clarity + sentenceCtrl + precision) / 25) * 100);
+
+          return NextResponse.json({
+            valid: true,
+            scorePercentage: score,
+            logicalCompleteness: completeness,
+            efficiency,
+            clarity,
+            sentenceControl: sentenceCtrl,
+            precision,
+            diagnoses,
+            feedback: isRunaway
+              ? "You explained the core connection, but added extra consequences. Stop once the point is proved."
+              : isTooShort
+              ? "You stated a conclusion without explaining the physical or logical mechanism."
+              : "Clear, complete reasoning with no wasted steps.",
+            modelAnswer: modelAnswer || "A complete and concise demonstration of the point.",
+            xpAwarded: score >= 80 ? 35 : 20,
+          });
+        }
+
+        const systemPrompt = `You are an expert Australian Grade 5 scholarship-writing reasoning evaluator and coach.
+You are evaluating a student's answer in a targeted reasoning drill called "Clear & Complete".
+
+CORE EDUCATIONAL PROBLEM:
+The student historically under-explained (leaving out causal bridges). After being taught to explain the steps, he now sometimes over-explains by adding unnecessary causal chains (e.g. table repair -> save money -> less stress -> better wellbeing).
+The target is NEITHER minimum brevity NOR bloated length.
+The target is: "Use the fewest words and logical steps necessary to make the reasoning completely clear."
+Find the exact middle point:
+1. Too little explanation -> reader must make an assumption / fill in the jump.
+2. Enough explanation -> every necessary logical connection is present.
+3. Too much explanation -> point is already established, but writer continues into unnecessary consequences/details.
+
+CRITICAL DISTINCTIONS:
+- NECESSARY VS UNNECESSARY CONSEQUENCES: A consequence is NOT automatically unnecessary. Sometimes a consequence IS the mechanism! (e.g. "Shade reduces direct sunlight reaching children" is a necessary consequence). But continuing to: "which makes them happier, which improves school performance" is an UNNECESSARY causal runaway.
+- Ask: "At what point was the proposition adequately demonstrated?" Reasoning after that point is UNNECESSARY_CAUSAL_EXTENSION unless it materially strengthens the core proof.
+- DO NOT TRAIN ARTIFICIALLY SHORT WRITING: Simple assertions like "Dogs need exercise because exercise is good" or "Repairing is cheaper" are UNDEREXPLAINED or RESTATES_CLAIM. A well-controlled complex sentence that explains the mechanism is rewarded.
+- SEPARATE LOGICAL REASONING FROM SENTENCE QUALITY: Awkward phrasing (e.g. "This will result in you not being late and make you a more time efficient person altogether") should be flagged as AWKWARD_CONSTRUCTION, not necessarily OVEREXPLAINED.
+- QUALIFICATION / PRECISION: Reward appropriately qualified claims (e.g. "can reduce costs") over unjustified absolutes ("always faster and cheaper" -> OVERGENERALISATION).
+
+TASK TYPES:
+1. "build_the_bridge": Point A and Conclusion C are given. Student must supply the missing causal bridge B.
+2. "say_it_clearly": Student is given facts and a question. They must extract relevant facts and connect them logically without runaway chains.
+3. "cut_the_waste": Student is given a bloated/over-explained argument and must strip away unnecessary reasoning while preserving complete logic.
+
+CALIBRATION ANCHORS & DIAGNOSTIC CLASSIFICATIONS (Use one or more flags):
+- "CLEAR_COMPLETE": Full causal bridge established with no wasted reasoning. (e.g. "For a small repair such as a loose table leg, fixing the damaged part may be cheaper than replacing the whole item" IS CLEAR_COMPLETE because it provides the qualifying comparison; "Walking to school would give Maya regular exercise while adding only two minutes to her journey" IS CLEAR_COMPLETE).
+- "UNDEREXPLAINED": Major logical jump; conclusion without mechanism (e.g. "Trees are good for playgrounds", "Walking would be better", "Repairing is better").
+- "MISSING_LOGICAL_STEP": Left out a crucial intermediary causal connection (e.g. When asked for Maya's advantage, "Walking would give Maya exercise" is MISSING_LOGICAL_STEP because it omits the key trade-off/time comparison from the facts; it is too basic).
+- "RESTATES_CLAIM": Paraphrases or re-asserts the conclusion instead of providing the mechanism (e.g. "Repairing is cheaper" when asked to prove it's better value).
+- "OVEREXPLAINED": Continues past the complete argument into speculative/unneeded details.
+- "UNNECESSARY_CAUSAL_EXTENSION": Unnecessary domino chain (e.g. table repair -> save money -> less stress -> better wellbeing).
+- "REPETITIVE": Circular reasoning, tautologies, or repeating the same idea with different words (e.g. "Replacing the leg is more affordable because it costs less money" merely repeats affordable/costs less without establishing comparison).
+- "AWKWARD_CONSTRUCTION": Clunky phrasing, unnatural syntax, category errors, or imprecise phrasing (e.g. "Repairing the table's leg would make the table more affordable" - repairs don't make an existing table affordable, they save replacement costs; or "This will result in you not being late and make you a more time efficient person altogether"). Flag AWKWARD_CONSTRUCTION whenever phrasing is unnatural or logically imprecise even if the general gist is clear.
+- "OVERGENERALISATION": Unjustified sweeping absolutes ("always", "everyone", "every single", "completely impossible").
+- "OFF_TOPIC": Fails to address the given proposition or facts.
+
+SCORING DIMENSIONS (Each 1 to 5):
+- logicalCompleteness (1-5): Does reader have every necessary step? (1=major gap, 3=understandable but reader must infer, 5=complete causal reasoning).
+- efficiency (1-5): Does response stop once the point is established? (1=substantial runaway, 3=some unnecessary padding, 5=no wasted reasoning).
+- clarity (1-5): Can reasoning be understood immediately?
+- sentenceControl (1-5): Grammar, syntax, conjunctions, natural Grade 5 construction.
+- precision (1-5): Appropriately qualified claims vs unjustified absolutes.
+- scorePercentage: Overall weighted percentage (0-100). If logicalCompleteness is 5 and efficiency is 5, score should be >= 90%. If OVEREXPLAINED or UNDEREXPLAINED, score accordingly.
+
+FEEDBACK REQUIREMENTS:
+- Feedback MUST be short, concrete, and child-facing (Grade 5 level).
+- Identify EXACTLY where the reasoning became complete (e.g., "You proved your point after '...'. Stop there.") OR exactly what bridge was missing (e.g., "You jumped from X to Y. Explain how X causes Y.").
+- Never give generic praise like "Good job! Try to be more concise."
+
+Return JSON strictly matching this schema:
+{
+  "valid": true,
+  "scorePercentage": number (0-100),
+  "logicalCompleteness": number (1-5),
+  "efficiency": number (1-5),
+  "clarity": number (1-5),
+  "sentenceControl": number (1-5),
+  "precision": number (1-5),
+  "diagnoses": array of ["CLEAR_COMPLETE" | "UNDEREXPLAINED" | "MISSING_LOGICAL_STEP" | "RESTATES_CLAIM" | "OVEREXPLAINED" | "UNNECESSARY_CAUSAL_EXTENSION" | "REPETITIVE" | "AWKWARD_CONSTRUCTION" | "OVERGENERALISATION" | "OFF_TOPIC"],
+  "feedback": "Concrete Grade 5 feedback pointing directly to the boundary or missing link",
+  "modelAnswer": "One clean Grade 5 model sentence showing complete logic with zero waste",
+  "xpAwarded": number (10-40)
+}`;
+
+        const userPrompt = `TASK TYPE: ${taskType}
+CONTEXT:
+${JSON.stringify(context, null, 2)}
+TARGET MECHANISM TIP: ${targetMechanismTip || "N/A"}
+REFERENCE MODEL ANSWER: ${modelAnswer || "N/A"}
+
+STUDENT RESPONSE:
+"${cleanText}"`;
+
+        const raw = await callOpenRouter(
+          systemPrompt,
+          userPrompt,
+          selectedModel,
+          700
+        );
+
+        const validated = ClearAndCompleteSchema.parse(raw);
+        return NextResponse.json(validated);
+      }
+
+      case "clear_and_complete_rewrite": {
+        const {
+          taskType,
+          originalStudentText,
+          previousFeedback,
+          rewrittenText,
+        } = payload;
+
+        const cleanOriginal = (originalStudentText || "").trim();
+        const cleanRewrite = (rewrittenText || "").trim();
+
+        if (!hasApiKey) {
+          return NextResponse.json({
+            valid: true,
+            improved: cleanRewrite.length > 10 && cleanRewrite !== cleanOriginal,
+            scorePercentage: 85,
+            feedback: "Rewrite logged. You addressed the feedback directly.",
+            xpAwarded: 25,
+          });
+        }
+
+        const systemPrompt = `You are a Grade 5 Australian scholarship exam writing coach.
+Evaluate a student's immediate rewrite of their reasoning sentence.
+Check whether the rewrite specifically addressed the identified weakness (e.g. cut the runaway extension, filled the missing bridge, or smoothed out awkward construction) while keeping the reasoning complete.
+
+Return JSON matching:
+{
+  "valid": true,
+  "improved": boolean,
+  "scorePercentage": number (0-100),
+  "feedback": "Short 1-2 sentence child-facing feedback on whether the rewrite fixed the problem",
+  "xpAwarded": number (10-30)
+}`;
+
+        const userPrompt = `ORIGINAL ANSWER:
+"${cleanOriginal}"
+
+PREVIOUS FEEDBACK GIVEN:
+"${previousFeedback}"
+
+STUDENT REWRITE:
+"${cleanRewrite}"`;
+
+        const raw = await callOpenRouter(
+          systemPrompt,
+          userPrompt,
+          selectedModel,
+          400
+        );
+
+        const validated = ClearAndCompleteRewriteSchema.parse(raw);
         return NextResponse.json(validated);
       }
 

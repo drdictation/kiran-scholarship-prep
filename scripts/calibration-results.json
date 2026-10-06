@@ -1,0 +1,700 @@
+{
+  "summary": {
+    "total": 30,
+    "matches": 30,
+    "matchRate": "100%"
+  },
+  "results": [
+    {
+      "id": 1,
+      "prompt": "Playground Trees & Summer Comfort",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Trees are good for playgrounds.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 35,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 2
+      },
+      "feedback": "“Trees are good for playgrounds” does not explain how they help. Add the missing link: their leaves block direct sunlight, making the playground cooler on hot days.",
+      "modelAnswer": "The trees’ leaves shade the playground from direct sunlight, keeping students cooler and more comfortable on hot days.",
+      "notes": "Weak answer from spec: conclusion without mechanism"
+    },
+    {
+      "id": 2,
+      "prompt": "Playground Trees & Summer Comfort",
+      "taskType": "build_the_bridge",
+      "studentResponse": "As the trees grow, their leaves provide shade and reduce the amount of direct sunlight reaching the playground equipment.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your bridge is complete at 'reduce the amount of direct sunlight reaching the playground equipment'. This explains how the trees make the playground more comfortable, and you stop at the right point.",
+      "modelAnswer": "As the trees grow, their leaves shade the playground equipment, reducing direct sunlight and keeping it cooler on hot days.",
+      "notes": "Good answer from spec: bridges trees -> shade -> comfort with no waste"
+    },
+    {
+      "id": 3,
+      "prompt": "Playground Trees & Summer Comfort",
+      "taskType": "build_the_bridge",
+      "studentResponse": "The trees provide shade, which makes children cooler, which makes them happier, which improves their wellbeing and could make them perform better at school.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION",
+        "AWKWARD_CONSTRUCTION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 68,
+        "logicalCompleteness": 5,
+        "efficiency": 2,
+        "clarity": 4,
+        "sentenceControl": 3,
+        "precision": 4
+      },
+      "feedback": "Your reasoning is complete after ‘makes children cooler’. Stop there: happiness, wellbeing and school performance go beyond proving comfort. Repeating ‘which makes’ also makes the sentence clunky.",
+      "modelAnswer": "The trees provide shade that keeps students cooler by reducing the direct sunlight reaching them.",
+      "notes": "Over-explained answer from spec: runaway causal extension into happiness/wellbeing/grades"
+    },
+    {
+      "id": 4,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Repairing is better.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 30,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 2
+      },
+      "feedback": "“Repairing is better” repeats the conclusion without proving it. Explain that fixing the only broken part for $30 costs much less than buying a whole new table.",
+      "modelAnswer": "Repairing the only broken leg for $30 keeps the sturdy table usable and avoids buying a new table that could cost hundreds of dollars.",
+      "notes": "Vague restatement without comparison or mechanism"
+    },
+    {
+      "id": 5,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Repairing is cheaper.",
+      "expectedCategory": "RESTATES_CLAIM",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 38,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 4,
+        "sentenceControl": 5,
+        "precision": 3
+      },
+      "feedback": "“Repairing is cheaper” repeats the point without proving it. Compare the $30 repair with the likely cost of a new table, and explain that only one leg needs fixing.",
+      "modelAnswer": "Fixing the only broken leg costs $30 and keeps the sturdy table usable, while a new table could cost hundreds of dollars.",
+      "notes": "Spec diagnosis: too close to restating conclusion C without mechanism"
+    },
+    {
+      "id": 6,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Replacing one broken table leg costs much less than buying a new table.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 98,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete at 'buying a new table': you compare fixing just the broken part with paying for a whole table. You stop at the right point.",
+      "modelAnswer": "Repairing the only broken leg for $30 keeps the sturdy table usable and avoids buying a new table that might cost hundreds of dollars.",
+      "notes": "Spec diagnosis: concise complete comparison"
+    },
+    {
+      "id": 7,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Replacing the leg saves money, which reduces stress and improves wellbeing.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "MISSING_LOGICAL_STEP",
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 52,
+        "logicalCompleteness": 2,
+        "efficiency": 2,
+        "clarity": 4,
+        "sentenceControl": 5,
+        "precision": 3
+      },
+      "feedback": "Explain why the $30 repair costs less than replacing the whole sturdy table. Stop after that comparison: 'reduces stress and improves wellbeing' does not help prove better value.",
+      "modelAnswer": "Repairing the only broken part for $30 keeps the sturdy table usable, while a new table might cost hundreds of dollars.",
+      "notes": "Spec diagnosis: point complete after saving money; stress/wellbeing is runaway"
+    },
+    {
+      "id": 8,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Replacing the leg is more affordable because it costs less money.",
+      "expectedCategory": "REPETITIVE",
+      "evaluatorDiagnoses": [
+        "RESTATES_CLAIM",
+        "REPETITIVE",
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 44,
+        "logicalCompleteness": 2,
+        "efficiency": 4,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 3
+      },
+      "feedback": "‘More affordable’ and ‘costs less money’ mean the same thing. Explain that fixing the only broken part costs $30, while replacing the whole table could cost hundreds.",
+      "modelAnswer": "Repairing the sturdy table’s only broken leg for $30 is much better value than buying a whole new table that could cost hundreds of dollars.",
+      "notes": "Spec diagnosis: circular / tautological reason"
+    },
+    {
+      "id": 9,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Fixing anything is always faster and cheaper than replacing it.",
+      "expectedCategory": "OVERGENERALISATION",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM",
+        "OVERGENERALISATION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 30,
+        "logicalCompleteness": 1,
+        "efficiency": 4,
+        "clarity": 4,
+        "sentenceControl": 5,
+        "precision": 1
+      },
+      "feedback": "You say fixing is cheaper, but do not show why this repair is better value. Compare the $30 repair with the cost of a new table. Avoid 'anything' and 'always': some repairs cost more than replacements.",
+      "modelAnswer": "Repairing the only broken leg for $30 keeps the sturdy table usable, while a new table might cost hundreds of dollars.",
+      "notes": "Spec diagnosis: unjustified absolute claim with 'always'"
+    },
+    {
+      "id": 10,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Repairing the table's leg would make the table more affordable.",
+      "expectedCategory": "AWKWARD_CONSTRUCTION",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "MISSING_LOGICAL_STEP",
+        "RESTATES_CLAIM",
+        "AWKWARD_CONSTRUCTION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 38,
+        "logicalCompleteness": 2,
+        "efficiency": 5,
+        "clarity": 2,
+        "sentenceControl": 3,
+        "precision": 2
+      },
+      "feedback": "‘More affordable’ repeats the idea of better value without showing why. Compare the $30 repair with the cost of a new table. The repair saves replacement costs; it does not make the table itself more affordable.",
+      "modelAnswer": "Repairing the only broken leg for $30 keeps the sturdy table usable and avoids buying a new one that could cost hundreds of dollars.",
+      "notes": "Spec diagnosis: awkward / imprecise construction (repair doesn't make table affordable)"
+    },
+    {
+      "id": 11,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Walking would be better for Maya.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM",
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 30,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 2
+      },
+      "feedback": "“Better for Maya” does not explain the advantage. Say that walking gives her daily exercise and takes only two minutes longer than driving.",
+      "modelAnswer": "Walking to school would give Maya daily exercise while taking only two minutes longer than driving.",
+      "notes": "Spec diagnosis: conclusion without mechanism"
+    },
+    {
+      "id": 12,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Walking would give Maya exercise.",
+      "expectedCategory": "MISSING_LOGICAL_STEP",
+      "evaluatorDiagnoses": [
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 72,
+        "logicalCompleteness": 3,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "You explained the exercise benefit, but left out the time comparison. Add that walking takes only two minutes longer than driving.",
+      "modelAnswer": "Walking to school would give Maya daily exercise while taking only two minutes longer than driving.",
+      "notes": "Spec note: better but basic; misses comparison or specific facts"
+    },
+    {
+      "id": 13,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Walking to school would give Maya regular exercise while adding only two minutes to her journey.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete after ‘only two minutes to her journey’: you explain the exercise benefit and the small extra travel time. You stop at exactly the right point.",
+      "modelAnswer": "Walking to school would give Maya regular exercise while adding only two minutes to her journey.",
+      "notes": "Spec diagnosis: CLEAR_COMPLETE"
+    },
+    {
+      "id": 14,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Walking would give Maya exercise, which could improve her fitness, make her healthier, improve her mood, reduce stress and perhaps help her concentrate better at school.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "MISSING_LOGICAL_STEP",
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 60,
+        "logicalCompleteness": 3,
+        "efficiency": 2,
+        "clarity": 4,
+        "sentenceControl": 4,
+        "precision": 4
+      },
+      "feedback": "After 'give Maya exercise', replace the list of possible benefits with the missing comparison: walking takes only two minutes longer than driving. This shows she can get daily exercise with little extra travel time.",
+      "modelAnswer": "Walking to school would give Maya daily exercise while adding only two minutes to her journey.",
+      "notes": "Spec diagnosis: OVEREXPLAINED / UNNECESSARY_CAUSAL_EXTENSION"
+    },
+    {
+      "id": 15,
+      "prompt": "Replacing Lost Library Books",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Losing books is bad because schools don't like it.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 30,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 4,
+        "precision": 2
+      },
+      "feedback": "“Schools don't like it” does not explain the problem. Add the missing link: the school must pay $25 to replace each lost book.",
+      "modelAnswer": "Students should look after library books because replacing 20 lost books at $25 each costs the school $500.",
+      "notes": "Spec note: missing relevant mechanism"
+    },
+    {
+      "id": 16,
+      "prompt": "Replacing Lost Library Books",
+      "taskType": "say_it_clearly",
+      "studentResponse": "When students lose library books, the school must spend money replacing them instead of using that money for other resources.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete after 'other resources': you explain that replacing lost books uses money the school could spend elsewhere. You stop at the right point.",
+      "modelAnswer": "When students lose library books, the school must spend money replacing them instead of using that money for other resources.",
+      "notes": "Spec note: excellent Grade 5 explanation"
+    },
+    {
+      "id": 17,
+      "prompt": "Replacing Lost Library Books",
+      "taskType": "say_it_clearly",
+      "studentResponse": "The school loses money, which could mean fewer resources, which could make lessons worse, which could lower students' grades and affect their future.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "MISSING_LOGICAL_STEP",
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 52,
+        "logicalCompleteness": 2,
+        "efficiency": 2,
+        "clarity": 4,
+        "sentenceControl": 4,
+        "precision": 4
+      },
+      "feedback": "Explain why the school loses money: it must buy replacement books. Then stop after ‘fewer resources’. Worse lessons, lower grades and students’ futures take the chain too far.",
+      "modelAnswer": "Students should look after library books because replacing 20 lost books at $25 each costs the school $500 that could be spent on other resources.",
+      "notes": "Spec note: chain becomes speculative and unnecessary"
+    },
+    {
+      "id": 18,
+      "prompt": "Replacing Lost Library Books",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Every single student who loses a book will cause the entire library to shut down completely.",
+      "expectedCategory": "OVERGENERALISATION",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "MISSING_LOGICAL_STEP",
+        "OVERGENERALISATION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 24,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 1
+      },
+      "feedback": "You jumped from losing a book to the whole library closing. The facts do not support that. Explain that lost books must be replaced: 20 books at $25 each cost the school $500.",
+      "modelAnswer": "Students should look after library books because replacing 20 lost books at $25 each costs the school $500.",
+      "notes": "Absurd absolute / catastrophic inflation"
+    },
+    {
+      "id": 19,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "This will result in Maya not being late and make her a more time efficient person altogether.",
+      "expectedCategory": "AWKWARD_CONSTRUCTION",
+      "evaluatorDiagnoses": [
+        "MISSING_LOGICAL_STEP",
+        "AWKWARD_CONSTRUCTION",
+        "OFF_TOPIC"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 30,
+        "logicalCompleteness": 1,
+        "efficiency": 4,
+        "clarity": 3,
+        "sentenceControl": 2,
+        "precision": 2
+      },
+      "feedback": "The facts do not show that walking would stop Maya being late or make her more time-efficient. Explain the real advantage: walking gives her daily exercise and takes only two minutes longer than driving.",
+      "modelAnswer": "Walking to school would give Maya daily exercise while adding only two minutes to her journey.",
+      "notes": "Kiran's exact writing habit: awkward prepositional phrase and syntax"
+    },
+    {
+      "id": 20,
+      "prompt": "Maya's School Journey",
+      "taskType": "say_it_clearly",
+      "studentResponse": "Cars produce carbon emissions which damage the ozone layer.",
+      "expectedCategory": "OFF_TOPIC",
+      "evaluatorDiagnoses": [
+        "OFF_TOPIC",
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 15,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 5,
+        "precision": 1
+      },
+      "feedback": "You explained car pollution, not an advantage for Maya using the facts. Link walking to her exercise goal, then show that it takes only two minutes longer. Carbon emissions mainly cause warming, not ozone-layer damage.",
+      "modelAnswer": "Walking to school would give Maya daily exercise while taking only two minutes longer than driving.",
+      "notes": "Fails to answer the question about Maya's direct advantage"
+    },
+    {
+      "id": 21,
+      "prompt": "Bicycle Petrol Savings",
+      "taskType": "cut_the_waste",
+      "studentResponse": "Riding a bicycle to a nearby shop can save money because it does not require petrol.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete after 'does not require petrol': this explains the saving. You stopped there and removed the unnecessary chain about stress and wellbeing.",
+      "modelAnswer": "Riding a bicycle to a nearby shop can save money because it does not require petrol.",
+      "notes": "Spec example 1: perfectly cut, sufficient, do not penalise for brevity"
+    },
+    {
+      "id": 22,
+      "prompt": "Playground Bins & Litter",
+      "taskType": "cut_the_waste",
+      "studentResponse": "If students put their rubbish in bins, less litter will be left around the playground, keeping the school cleaner.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete at ‘keeping the school cleaner’: rubbish goes in bins, so less litter stays on the playground. You stopped there without adding unrelated effects.",
+      "modelAnswer": "If students put their rubbish in bins, less litter will be left around the playground, keeping the school cleaner.",
+      "notes": "Spec example 2: everything after cleanliness removed"
+    },
+    {
+      "id": 23,
+      "prompt": "Bicycle Petrol Savings",
+      "taskType": "cut_the_waste",
+      "studentResponse": "Riding saves petrol which saves money and prevents stress.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION",
+        "OVERGENERALISATION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 80,
+        "logicalCompleteness": 5,
+        "efficiency": 3,
+        "clarity": 4,
+        "sentenceControl": 4,
+        "precision": 3
+      },
+      "feedback": "Your reasoning is complete at 'which saves money'. Stop there: 'and prevents stress' adds an unnecessary result that is not guaranteed.",
+      "modelAnswer": "Riding a bicycle to a nearby shop can save money because it does not need petrol.",
+      "notes": "Failed to cut the stress tail completely"
+    },
+    {
+      "id": 24,
+      "prompt": "Playground Bins & Litter",
+      "taskType": "cut_the_waste",
+      "studentResponse": "Bins are good.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "MISSING_LOGICAL_STEP"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 28,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 2,
+        "sentenceControl": 5,
+        "precision": 2
+      },
+      "feedback": "You cut out the needed explanation too. “Bins are good” does not explain how they keep school clean. Keep the link: putting rubbish in bins leaves less litter on the playground.",
+      "modelAnswer": "If students put rubbish in bins, less litter is left on the playground, keeping the school cleaner.",
+      "notes": "Over-cut to the point of deleting the causal mechanism"
+    },
+    {
+      "id": 25,
+      "prompt": "Dog Exercise & Inactivity",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Regular walks allow dogs to exercise, helping them maintain their fitness and preventing them from being inactive for long periods.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "You explain the link: regular walks provide exercise that maintains fitness. ‘Preventing them from being inactive for long periods’ supports that link without adding an unnecessary chain.",
+      "modelAnswer": "Daily thirty-minute walks give the dog regular exercise that strengthens its heart and helps keep its body fit.",
+      "notes": "Section 8 rule: longer, complex sentence that explains mechanism is rewarded, NOT penalised for word count"
+    },
+    {
+      "id": 26,
+      "prompt": "Dog Exercise & Inactivity",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Dogs need exercise because exercise is good.",
+      "expectedCategory": "UNDEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "UNDEREXPLAINED",
+        "RESTATES_CLAIM"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 34,
+        "logicalCompleteness": 1,
+        "efficiency": 5,
+        "clarity": 3,
+        "sentenceControl": 4,
+        "precision": 2
+      },
+      "feedback": "“Exercise is good” does not explain how the walks keep this dog healthy. Add the bridge: daily walks give its heart regular exercise, helping it stay fit.",
+      "modelAnswer": "Daily thirty-minute walks give the dog regular exercise that helps keep its heart healthy and its body fit.",
+      "notes": "Section 8 rule: artificially short sentence that avoids explaining mechanism"
+    },
+    {
+      "id": 27,
+      "prompt": "Shaded Areas & Sun Protection",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Shade reduces the amount of direct ultraviolet sunlight reaching children while they are outside.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your bridge is complete at 'reaching children while they are outside': you explain how shade reduces their sun exposure and stop without adding extra consequences.",
+      "modelAnswer": "Shade reduces the amount of direct sunlight reaching children while they play outside.",
+      "notes": "Section 7 rule: this consequence IS the mechanism, so it MUST be rewarded"
+    },
+    {
+      "id": 28,
+      "prompt": "Shaded Areas & Sun Protection",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Shade stops direct sunlight reaching students, which makes children more comfortable, which makes them happier, which improves their attitude towards school.",
+      "expectedCategory": "OVEREXPLAINED",
+      "evaluatorDiagnoses": [
+        "OVEREXPLAINED",
+        "UNNECESSARY_CAUSAL_EXTENSION"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 70,
+        "logicalCompleteness": 5,
+        "efficiency": 1,
+        "clarity": 4,
+        "sentenceControl": 4,
+        "precision": 4
+      },
+      "feedback": "Your reasoning was complete after 'Shade stops direct sunlight reaching students.' Stop there: comfort, happiness and attitude towards school do not help explain protection from the sun. Use 'reduces' for a more careful claim.",
+      "modelAnswer": "The shade sails reduce the amount of direct sunlight reaching students while they play at lunchtime.",
+      "notes": "Section 7 rule: stops sunlight is good, but later consequences into happier/attitude are unneeded"
+    },
+    {
+      "id": 29,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "Repairing the broken leg for $30 instead of buying a $500 table saves $470.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 96,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 4
+      },
+      "feedback": "Your comparison proves the point at ‘saves $470’, and you stop there. Since the replacement price wasn't given, say ‘if a new table costs $500’.",
+      "modelAnswer": "If a new table costs $500, repairing the sturdy table’s only broken leg for $30 saves $470.",
+      "notes": "Spec diagnosis: CLEAR_COMPLETE with concrete numbers"
+    },
+    {
+      "id": 30,
+      "prompt": "Dining Table Repair vs Replacement",
+      "taskType": "build_the_bridge",
+      "studentResponse": "For a small repair such as a loose table leg, fixing the damaged part may be cheaper than replacing the whole item.",
+      "expectedCategory": "CLEAR_COMPLETE",
+      "evaluatorDiagnoses": [
+        "CLEAR_COMPLETE"
+      ],
+      "isMatch": true,
+      "scores": {
+        "scorePercentage": 100,
+        "logicalCompleteness": 5,
+        "efficiency": 5,
+        "clarity": 5,
+        "sentenceControl": 5,
+        "precision": 5
+      },
+      "feedback": "Your reasoning is complete at ‘replacing the whole item’: you compare fixing one damaged part with buying a whole replacement. You stop exactly where you should.",
+      "modelAnswer": "Repairing the sturdy table’s only broken leg for $30 avoids buying a whole new table, which could cost hundreds of dollars.",
+      "notes": "Spec diagnosis: appropriately qualified complex sentence, CLEAR_COMPLETE"
+    }
+  ]
+}
