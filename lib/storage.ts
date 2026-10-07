@@ -5,6 +5,7 @@ import {
   TopicDomain,
   TransferStatus,
   LogicAttemptRecord,
+  FlaggedSentence,
 } from "@/types";
 import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
 import { computeLogicProfile } from "@/lib/logic-scoring";
@@ -404,6 +405,10 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
       updateRollingScore("planning_speed", attempt.score);
       break;
 
+    case "sentence_sprint":
+      updateRollingScore("causal_reasoning", attempt.score);
+      break;
+
     case "clear_and_complete":
       updateRollingScore("causal_progression", attempt.score, 0.35);
       updateRollingScore("consequence_reasoning", attempt.score, 0.35);
@@ -453,4 +458,33 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
   }
 
   saveProfile(profile);
+}
+
+/* ---------- Sentence Sprint state: repair queue, streak, median time ---------- */
+const SPRINT_KEY = "kiran_prep_sprint_v1";
+
+export function getSprintState(): { queue: FlaggedSentence[]; streak: number } {
+  if (typeof window === "undefined") return { queue: [], streak: 0 };
+  try {
+    return JSON.parse(localStorage.getItem(SPRINT_KEY) || "") || { queue: [], streak: 0 };
+  } catch {
+    return { queue: [], streak: 0 };
+  }
+}
+
+export function saveSprintState(state: { queue: FlaggedSentence[]; streak: number }): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SPRINT_KEY, JSON.stringify({ ...state, queue: state.queue.slice(0, 30) }));
+}
+
+/** Median seconds to first clear sentence over the last 20 sprint attempts */
+export function getSprintMedianSeconds(): number | null {
+  const times = getAttempts()
+    .filter((a) => a.exerciseType === "sentence_sprint" && a.details?.firstClearSeconds)
+    .slice(0, 20)
+    .map((a) => a.details!.firstClearSeconds as number)
+    .sort((a, b) => a - b);
+  if (!times.length) return null;
+  const mid = Math.floor(times.length / 2);
+  return times.length % 2 ? times[mid] : Math.round((times[mid - 1] + times[mid]) / 2);
 }

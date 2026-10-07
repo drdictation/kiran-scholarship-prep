@@ -15,6 +15,7 @@ import {
   LogicQuestionGenerationSchema,
   ClearAndCompleteSchema,
   ClearAndCompleteRewriteSchema,
+  SentenceSprintSchema,
 } from "@/lib/ai/openrouter";
 
 const VAGUE_TERMS = [
@@ -1096,6 +1097,52 @@ STUDENT REWRITE:
 
         const validated = ClearAndCompleteRewriteSchema.parse(raw);
         return NextResponse.json(validated);
+      }
+
+      case "sentence_sprint": {
+        const { task, notes, argument, weakSentence, sentencesRequired, studentText } = payload;
+        const text = String(studentText || "").trim();
+        const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+
+        if (!hasApiKey) {
+          const words = text.split(/\s+/).filter(Boolean);
+          const maxWords = 28 * (sentencesRequired || 1);
+          const source = (notes || []).join(" ") + " " + (argument || weakSentence || "");
+          const keys = source.toLowerCase().match(/[a-z]{5,}/g) || [];
+          const lower = text.toLowerCase();
+          const hits = keys.filter((k) => lower.includes(k.slice(0, 5))).length;
+          const complete = hits >= 2 && words.length >= 6 ? 4 : 2;
+          const controlled = sentences.length === (sentencesRequired || 1) && /^[A-Z]/.test(text) && /[.!?]$/.test(text) ? 4 : 2;
+          const efficient = words.length <= maxWords ? 4 : 2;
+          const clear = (text.match(/\band\b/gi) || []).length <= 2 * (sentencesRequired || 1) ? 4 : 3;
+          return NextResponse.json({
+            valid: true, complete, clear, controlled, efficient,
+            diagnosis: efficient < 4 ? "VERBOSE" : controlled < 4 ? "AWKWARD" : complete < 4 ? "MISSING_STEP" : "OK",
+            feedback: "Offline marking: add an API key for full feedback.",
+          });
+        }
+
+        const systemPrompt = `You mark a Grade 5 Australian student's scholarship writing sprint.
+TASK: ${task}
+${notes ? `NOTES: ${JSON.stringify(notes)}` : ""}
+${argument ? `ARGUMENT: ${argument}` : ""}
+${weakSentence ? `ORIGINAL SENTENCE TO REWRITE (meaning must stay the same): "${weakSentence}"` : ""}
+SENTENCES REQUIRED: ${sentencesRequired}
+STUDENT WROTE: "${text}"
+
+Score each 1-5:
+- complete: states the necessary connection (cause -> effect) so the idea is proved
+- clear: reader understands immediately
+- controlled: grammatically well built, correct number of sentences
+- efficient: stops once the idea is proved; no unnecessary extra ideas
+Length itself is NOT scored. A plain, natural Grade 5 sentence earns full marks.
+NEVER rewrite or suggest an adult-sophisticated version. Do NOT give a model answer.
+If the sentence is weak, say in 1-2 short Grade 5 sentences what is wrong (e.g. which idea is not needed or which link is missing), without writing the fixed sentence.
+
+Return JSON: {"valid":true,"complete":n,"clear":n,"controlled":n,"efficient":n,"diagnosis":"AWKWARD"|"VERBOSE"|"MISSING_STEP"|"REPETITIVE"|"OVEREXPLAINED"|"OK","feedback":"..."}`;
+
+        const raw = await callOpenRouter(systemPrompt, "Mark the sprint sentence(s).", selectedModel, 400);
+        return NextResponse.json(SentenceSprintSchema.parse(raw));
       }
 
       default:

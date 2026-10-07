@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
-import { getProfile, getAttempts, saveProfile } from "@/lib/storage";
+import { getProfile, getAttempts, saveProfile, getSprintMedianSeconds, getSprintState } from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import { LogicDashboard } from "@/components/parent/LogicDashboard";
 import {
@@ -223,7 +223,7 @@ export function ParentDashboard() {
         </div>
 
         {/* Top metrics summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 block">
               Total XP
@@ -262,6 +262,18 @@ export function ParentDashboard() {
               {Object.keys(profile.seenQuestions || {}).length}
             </span>
             <span className="text-[11px] text-amber-700 font-medium">Novel questions tested</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 block">
+              Sprint Speed
+            </span>
+            <span className="text-2xl font-black text-emerald-950 mt-1 block">
+              {getSprintMedianSeconds() !== null ? `${getSprintMedianSeconds()}s` : "—"}
+            </span>
+            <span className="text-[11px] text-emerald-700 font-medium">
+              Median 1st clear ({getSprintState().queue.length} in repair queue)
+            </span>
           </div>
         </div>
       </div>

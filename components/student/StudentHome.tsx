@@ -26,6 +26,7 @@ import { SentenceForge } from "@/components/games/SentenceForge";
 import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
 import { LogicLab } from "@/components/games/LogicLab";
 import { ClearAndComplete } from "@/components/games/ClearAndComplete";
+import { SentenceSprint } from "@/components/games/SentenceSprint";
 import {
   Flame,
   Sparkles,
@@ -192,6 +193,10 @@ export function StudentHome() {
     );
   }
 
+  if (activeMode === "sentence_sprint") {
+    return <SentenceSprint onComplete={refreshProfile} onBack={() => setActiveMode(null)} />;
+  }
+
   if (activeMode === "clear_and_complete") {
     return (
       <ClearAndComplete
@@ -320,6 +325,23 @@ export function StudentHome() {
             </div>
             <div className="mt-4 pt-3 border-t border-indigo-200 flex items-center justify-between text-xs font-bold text-indigo-700">
               <span>Zero Wasted Reasoning</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+          {/* Sentence Sprint */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("sentence_sprint")}
+            className="p-5 bg-gradient-to-br from-amber-50 to-orange-100/60 rounded-2xl border-2 border-amber-500 hover:border-amber-700 hover:shadow-lg transition-all text-left group flex flex-col justify-between"
+          >
+            <div>
+              <h3 className="font-black text-slate-900 text-base">Sentence Sprint</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Turn a good thought into one clear, complete sentence. 5 levels, with repair rounds on your own sentences.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-amber-200 flex items-center justify-between text-xs font-bold text-amber-700">
+              <span>Clear, Complete, Fast</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

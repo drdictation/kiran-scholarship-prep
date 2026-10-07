@@ -284,3 +284,15 @@ export const ClearAndCompleteRewriteSchema = z.object({
   feedback: z.string(),
   xpAwarded: z.number(),
 });
+
+export const SentenceSprintSchema = z.object({
+  valid: z.boolean(),
+  complete: z.number().min(1).max(5),
+  clear: z.number().min(1).max(5),
+  controlled: z.number().min(1).max(5),
+  efficient: z.number().min(1).max(5),
+  diagnosis: z
+    .enum(["AWKWARD", "VERBOSE", "MISSING_STEP", "REPETITIVE", "OVEREXPLAINED", "OK"])
+    .optional(),
+  feedback: z.string(),
+});

@@ -62,7 +62,43 @@ export type ExerciseType =
   | "fix_weak_link"
   | "one_step_only"
   | "logic_reasoning"
-  | "clear_and_complete";
+  | "clear_and_complete"
+  | "sentence_sprint";
+
+export type SprintLevel = 1 | 2 | 3 | 4 | 5;
+export type SprintKind = "write" | "fix" | "stop";
+
+export interface SentenceSprintPrompt {
+  id: string;
+  level: SprintLevel;
+  kind: SprintKind;
+  domain: TopicDomain;
+  task: string;
+  notes?: string[]; // rough notes (L1, L3, L4) or three arguments (L5)
+  argument?: string; // L2: argument supplied
+  weakSentence?: string; // fix: sentence to rewrite
+  steps?: string[]; // stop: chain of steps
+  stopIndex?: number; // stop: index where argument is proved
+  stopWhy?: string;
+  sentencesRequired: number;
+  timeLimitSeconds: number;
+}
+
+export interface SentenceSprintEvaluation {
+  valid: boolean;
+  complete: number; // 1-5
+  clear: number; // 1-5
+  controlled: number; // 1-5
+  efficient: number; // 1-5
+  diagnosis?: "AWKWARD" | "VERBOSE" | "MISSING_STEP" | "REPETITIVE" | "OVEREXPLAINED" | "OK";
+  feedback: string;
+}
+
+export interface FlaggedSentence {
+  text: string;
+  diagnosis: string;
+  date: number;
+}
 
 export type ClearAndCompleteTaskType =
   | "build_the_bridge"
