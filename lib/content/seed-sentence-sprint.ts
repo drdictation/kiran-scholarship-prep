@@ -58,6 +58,33 @@ export const SEED_SENTENCE_SPRINT: SentenceSprintPrompt[] = [
     task: "Explain clearly in one sentence why pedestrian crossings are placed outside schools.",
     notes: ["heavy traffic at pick-up", "cars must stop at striped crossing", "students cross safely"],
   },
+  {
+    id: "ss-1k", level: 1, kind: "write", domain: "environment", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Explain clearly in one sentence why reusable shopping bags protect sea life.",
+    notes: ["plastic bags blow into gutters", "wash into waterways", "turtles eat them by mistake"],
+  },
+  {
+    id: "ss-1l", level: 1, kind: "write", domain: "everyday_objects", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Explain clearly in one sentence why wearing a bike helmet is necessary.",
+    notes: ["hard foam shell", "absorbs impact during fall", "protects skull and brain"],
+  },
+  {
+    id: "ss-1m", level: 1, kind: "fix", domain: "fairness", sentencesRequired: 1, timeLimitSeconds: 45,
+    task: "Rewrite this clearly in one sentence without changing the meaning.",
+    weakSentence: "If you take turns it makes it so everyone gets an equal go and nobody feels like it is unfair at all.",
+  },
+  {
+    id: "ss-1n", level: 1, kind: "stop", domain: "technology", sentencesRequired: 0, timeLimitSeconds: 20,
+    task: "Tap the step where the argument has been proved.",
+    steps: ["Use two-factor code", "Thief only has password", "Login is rejected", "Account stays secure", "You feel peaceful", "Better life balance"],
+    stopIndex: 3,
+    stopWhy: "Login rejected and account secure proves two-factor works. Emotional claims are unnecessary.",
+  },
+  {
+    id: "ss-1o", level: 1, kind: "write", domain: "money_and_resources", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Explain clearly in one sentence why cooking dinner at home saves money compared to takeaway.",
+    notes: ["bulk ingredients from supermarket", "cost per meal is a few dollars", "takeaway charges high service fees"],
+  },
 
   // ==========================================
   // LEVEL 2: Argument Supplied -> Explanation Sentence
@@ -106,6 +133,26 @@ export const SEED_SENTENCE_SPRINT: SentenceSprintPrompt[] = [
     stopIndex: 3,
     stopWhy: "Lower collision risk proves the safety argument. State healthcare budget is unnecessary causal extension.",
   },
+  {
+    id: "ss-2i", level: 2, kind: "write", domain: "animals", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Write one sentence that explains why this argument is true.",
+    argument: "Guide dogs should be allowed in all restaurants and shops.",
+  },
+  {
+    id: "ss-2j", level: 2, kind: "write", domain: "science", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Write one sentence that explains why this argument is true.",
+    argument: "Boiling water kills harmful bacteria before drinking.",
+  },
+  {
+    id: "ss-2k", level: 2, kind: "write", domain: "society", sentencesRequired: 1, timeLimitSeconds: 60,
+    task: "Write one sentence that explains why this argument is true.",
+    argument: "Free public parks improve city living.",
+  },
+  {
+    id: "ss-2l", level: 2, kind: "fix", domain: "health", sentencesRequired: 1, timeLimitSeconds: 45,
+    task: "Rewrite this wordy sentence cleanly into one direct sentence.",
+    weakSentence: "The reason that stretching before sport is good is due to it preventing muscle strains from occurring to players.",
+  },
 
   // ==========================================
   // LEVEL 3: Notes Supplied -> 2 Connected Sentences
@@ -140,6 +187,21 @@ export const SEED_SENTENCE_SPRINT: SentenceSprintPrompt[] = [
     task: "Turn this repetitive sentence into two clean, connected sentences.",
     weakSentence: "When you tell the truth people will always believe you and trust you because honesty makes people believe everything you say.",
   },
+  {
+    id: "ss-3g", level: 3, kind: "write", domain: "transport", sentencesRequired: 2, timeLimitSeconds: 90,
+    task: "Write two connected sentences explaining why school walking buses reduce morning congestion.",
+    notes: ["parents take turns walking groups of children", "dozens of cars stay off residential streets", "drop-off zones flow smoothly"],
+  },
+  {
+    id: "ss-3h", level: 3, kind: "write", domain: "money_and_resources", sentencesRequired: 2, timeLimitSeconds: 90,
+    task: "Write two connected sentences explaining why second-hand school uniforms benefit families.",
+    notes: ["children outgrow blazers quickly", "second-hand sales cost half retail price", "saves household budgets each term"],
+  },
+  {
+    id: "ss-3i", level: 3, kind: "write", domain: "science", sentencesRequired: 2, timeLimitSeconds: 90,
+    task: "Write two connected sentences explaining why sunscreen prevents skin damage.",
+    notes: ["sun emits harmful ultraviolet radiation", "sunscreen lotion absorbs or blocks UV rays", "prevents painful burns and long-term cell harm"],
+  },
 
   // ==========================================
   // LEVEL 4: Paragraph Core -> 3 Clean Sentences
@@ -163,6 +225,21 @@ export const SEED_SENTENCE_SPRINT: SentenceSprintPrompt[] = [
     id: "ss-4d", level: 4, kind: "write", domain: "rules_and_freedom", sentencesRequired: 3, timeLimitSeconds: 120,
     task: "Write three clean sentences: Claim, Causal Mechanism, and Direct Consequence.",
     notes: ["Claim: Daily homework limits for primary students are sensible", "Mechanism: Excessive worksheets cut into restorative sleep and family dinner", "Consequence: Moderate 20-minute tasks maintain practice without burnout"],
+  },
+  {
+    id: "ss-4e", level: 4, kind: "write", domain: "health", sentencesRequired: 3, timeLimitSeconds: 120,
+    task: "Write three clean sentences: Claim, Causal Mechanism, and Direct Consequence.",
+    notes: ["Claim: Daily recess outside improves afternoon classroom focus", "Mechanism: Physical play burns restless energy and resets working memory", "Consequence: Students return to desks ready to engage with complex tasks"],
+  },
+  {
+    id: "ss-4f", level: 4, kind: "write", domain: "community", sentencesRequired: 3, timeLimitSeconds: 120,
+    task: "Write three clean sentences: Claim, Causal Mechanism, and Direct Consequence.",
+    notes: ["Claim: Community gardens foster neighbourhood bonds", "Mechanism: Residents collaborate to water plots and divide fresh harvests", "Consequence: Strangers become trusted neighbours through shared daily work"],
+  },
+  {
+    id: "ss-4g", level: 4, kind: "write", domain: "technology", sentencesRequired: 3, timeLimitSeconds: 120,
+    task: "Write three clean sentences: Claim, Causal Mechanism, and Direct Consequence.",
+    notes: ["Claim: Teaching basic coding in primary school develops logical thinking", "Mechanism: Debugging code forces students to trace errors step by step", "Consequence: Children apply methodical problem-solving to other school subjects"],
   },
 
   // ==========================================
@@ -202,6 +279,33 @@ export const SEED_SENTENCE_SPRINT: SentenceSprintPrompt[] = [
       "Safety Lens: Two-factor authentication blocks unauthorised logins even if a password leaks.",
       "Privacy Lens: Strong encryption keeps sensitive personal messages unreadable to eavesdroppers.",
       "Control Lens: Regular software updates patch security flaws before hackers can exploit them.",
+    ],
+  },
+  {
+    id: "ss-5e", level: 5, kind: "write", domain: "rules_and_freedom", sentencesRequired: 3, timeLimitSeconds: 150,
+    task: "Write one clear explanation sentence for each of the three arguments (3 sentences total).",
+    notes: [
+      "Safety Lens: Compulsory bicycle helmet laws prevent traumatic brain injuries during falls.",
+      "Fairness Lens: Clear road rules ensure all cyclists share pathways predictably with pedestrians.",
+      "Healthcare Lens: Fewer severe collisions reduce emergency hospital admissions and public costs.",
+    ],
+  },
+  {
+    id: "ss-5f", level: 5, kind: "write", domain: "money_and_resources", sentencesRequired: 3, timeLimitSeconds: 150,
+    task: "Write one clear explanation sentence for each of the three arguments (3 sentences total).",
+    notes: [
+      "Budget Lens: Weekly meal planning ensures families only purchase groceries they actually eat.",
+      "Waste Lens: Storing leftover portions eliminates food spoilage before expiration dates.",
+      "Time Lens: Cooking larger batches frees weekday evenings from repetitive cooking chores.",
+    ],
+  },
+  {
+    id: "ss-5g", level: 5, kind: "write", domain: "community", sentencesRequired: 3, timeLimitSeconds: 150,
+    task: "Write one clear explanation sentence for each of the three arguments (3 sentences total).",
+    notes: [
+      "Civic Lens: Community tree planting fosters pride in local public parks.",
+      "Climate Lens: Dense leaf canopies reduce urban heat island effects on residential streets.",
+      "Wildlife Lens: Native eucalyptus and acacia trees provide essential nesting habitat for urban birds.",
     ],
   },
 ];
