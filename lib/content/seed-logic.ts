@@ -624,4 +624,340 @@ export const SEED_LOGIC_QUESTIONS: LogicQuestion[] = [
       D: "A Sugar Glider is a marsupial mammal, not a bird.",
     },
   },
+
+  // --- ADDITIONAL HIGH-DIFFICULTY QUESTIONS (Melbourne Year 5 Private School Scholarship Level: EduTest / ACER / AAS) ---
+
+  // 1. Ordering / Sequencing (Multi-dimensional / Circular / Relative)
+  {
+    id: "logic-ord-03",
+    category: "ordering_sequencing",
+    subSkill: "Relative time-interval deduction",
+    difficulty: 3,
+    premises: "Five students (P, Q, R, S, T) finish an exam at different times.\n- P finished before Q, but after R.\n- S finished before T, but after Q.\n- No two students finished at the same time.",
+    question: "If exactly one student finished between R and Q, who must that student be?",
+    options: [
+      { id: "A", text: "P" },
+      { id: "B", text: "S" },
+      { id: "C", text: "T" },
+      { id: "D", text: "Cannot be determined" },
+    ],
+    correctAnswer: "A",
+    explanation: "From the clues: R finished before P, and P finished before Q (R → P → Q). Since P is strictly between R and Q, P must be that student.",
+    commonErrorFeedback: {
+      B: "S finished after Q, not between R and Q.",
+      C: "T finished after S (and after Q).",
+      D: "The sequence R → P → Q is fixed by the premises.",
+    },
+  },
+  {
+    id: "logic-ord-04",
+    category: "ordering_sequencing",
+    subSkill: "Circular table relative seating",
+    difficulty: 3,
+    premises: "Six friends (A, B, C, D, E, F) sit evenly spaced around a circular table.\n- A sits directly opposite D.\n- B sits immediately to the right of A.\n- F sits directly opposite B.\n- C is not adjacent to D.",
+    question: "Who sits immediately to the left of D?",
+    options: [
+      { id: "A", text: "C" },
+      { id: "B", text: "E" },
+      { id: "C", text: "F" },
+      { id: "D", text: "B" },
+    ],
+    correctAnswer: "B",
+    explanation: "Around the circle in clockwise order: A, B, E/C... Since F is opposite B, F is at position 5 (counter-clockwise 1 from A). D is opposite A (position 4). The spots adjacent to D are 3 and 5 (F is at 5). Since C cannot sit next to D, C must be at position 3? Wait: if F is next to D on one side, position 3 must be E because C cannot be adjacent to D. To D's left (clockwise) is E.",
+    commonErrorFeedback: {
+      A: "C cannot sit next to D per the fourth premise.",
+      C: "F is to D's right, not left.",
+      D: "B is opposite F, not adjacent to D.",
+    },
+  },
+
+  // 2. Deductive Reasoning (Complex Syllogisms & Overlapping Sets)
+  {
+    id: "logic-ded-03",
+    category: "deductive_reasoning",
+    subSkill: "Quantified set deduction ('Some' + 'No')",
+    difficulty: 3,
+    premises: "1. All members of the debating team are voracious readers.\n2. No voracious readers skip morning homeroom.\n3. Some chess champions are on the debating team.",
+    question: "Which conclusion is strictly guaranteed?",
+    options: [
+      { id: "A", text: "All chess champions attend morning homeroom." },
+      { id: "B", text: "Some chess champions do not skip morning homeroom." },
+      { id: "C", text: "All voracious readers are on the debating team." },
+      { id: "D", text: "No chess champions skip morning homeroom." },
+    ],
+    correctAnswer: "B",
+    explanation: "The chess champions who are on the debating team are voracious readers. Voracious readers never skip morning homeroom. Therefore, those specific chess champions do not skip morning homeroom.",
+    commonErrorFeedback: {
+      A: "Overgeneralization: Only the chess champions on the debating team are guaranteed; others are unknown.",
+      C: "Invalid reversal: Debaters are readers, but not all readers must debate.",
+      D: "Overgeneralization: Applies a rule about some chess players to all chess players.",
+    },
+  },
+
+  // 3. Conditional Logic (Nested / Multi-rule Contrapositives)
+  {
+    id: "logic-cnd-03",
+    category: "conditional_logic",
+    subSkill: "Chained conditional contrapositive",
+    difficulty: 3,
+    premises: "Rules for house points:\n1. If a student receives an academic commendation, they attend the Principal's Luncheon.\n2. If a student attends the Principal's Luncheon, they receive a gold blazer badge.\nFact: Julian does NOT have a gold blazer badge.",
+    question: "What can be logically deduced with complete certainty?",
+    options: [
+      { id: "A", text: "Julian did not receive an academic commendation." },
+      { id: "B", text: "Julian was absent from the Principal's Luncheon due to illness." },
+      { id: "C", text: "Julian received a silver blazer badge." },
+      { id: "D", text: "Julian lost his badge." },
+    ],
+    correctAnswer: "A",
+    explanation: "Chained rule: Commendation → Luncheon → Gold Badge. Contrapositive: No Gold Badge → No Luncheon → No Commendation. Julian cannot have received an academic commendation.",
+    commonErrorFeedback: {
+      B: "Speculation outside logical premises.",
+      C: "Unsupported claim; no mention of silver badges in rules.",
+    },
+  },
+  {
+    id: "logic-cnd-04",
+    category: "conditional_logic",
+    subSkill: "Biconditional vs Single Conditional",
+    difficulty: 3,
+    premises: "School gate rule: 'Students are permitted to leave grounds during lunch ONLY IF they have written senior-prefect clearance.'\nArchie does NOT have written senior-prefect clearance.",
+    question: "Can Archie leave school grounds during lunch?",
+    options: [
+      { id: "A", text: "Yes, if a teacher accompanies him." },
+      { id: "B", text: "No, he is strictly not permitted to leave." },
+      { id: "C", text: "Yes, because 'only if' indicates a recommendation, not a requirement." },
+      { id: "D", text: "It depends on whether he is in Year 5 or Year 6." },
+    ],
+    correctAnswer: "B",
+    explanation: "'X only if Y' means Y is a mandatory necessary condition (No Y → No X). Without clearance, leaving grounds is strictly impossible under the rule.",
+    commonErrorFeedback: {
+      A: "Premises provide no teacher exception clause.",
+      C: "'Only if' denotes an absolute necessary condition in formal scholarship logic.",
+    },
+  },
+
+  // 4. Necessary vs Sufficient (Subtle Scholarship Distinctions)
+  {
+    id: "logic-nec-03",
+    category: "necessary_sufficient",
+    subSkill: "Identifying necessary condition from compound statements",
+    difficulty: 3,
+    premises: "A coach states: 'Winning both the semifinal AND maintaining zero penalties guarantees reaching the state championship.'",
+    question: "Which of the following is true based purely on the coach's statement?",
+    options: [
+      { id: "A", text: "Maintaining zero penalties is necessary to reach the state championship." },
+      { id: "B", text: "Winning the semifinal is sufficient on its own to reach the state championship." },
+      { id: "C", text: "The combination of winning the semifinal and zero penalties is sufficient to reach the state championship." },
+      { id: "D", text: "A team that incurs one penalty cannot reach the state championship." },
+    ],
+    correctAnswer: "C",
+    explanation: "'Guarantees' denotes sufficiency. The compound condition (winning AND zero penalties) is jointly sufficient. Neither is stated to be individually necessary or individually sufficient.",
+    commonErrorFeedback: {
+      A: "Confusing sufficiency with necessity; other pathways might qualify a team.",
+      B: "Winning alone is not sufficient; the zero penalties condition is coupled.",
+      D: "Penalties might prevent this specific guarantee, but not disqualify through alternate pathways.",
+    },
+  },
+
+  // 5. Must / Could / Cannot be true (Multi-constraint Grid)
+  {
+    id: "logic-mcc-03",
+    category: "must_could_cannot",
+    subSkill: "Deducing what cannot be true in score distributions",
+    difficulty: 3,
+    premises: "In a 4-round math contest, scores are positive integers. Total score is 30. No round scored lower than 5. Round 3 was the highest single score.",
+    question: "Which score for Round 3 CANNOT be true?",
+    options: [
+      { id: "A", text: "15" },
+      { id: "B", text: "12" },
+      { id: "C", text: "8" },
+      { id: "D", text: "9" },
+    ],
+    correctAnswer: "C",
+    explanation: "If Round 3 were 8, then the maximum possible total for all 4 rounds would be 8 + 7 + 7 + 7 = 29 (since Round 3 is strictly highest). But the total is 30. Therefore Round 3 cannot be 8.",
+    commonErrorFeedback: {
+      A: "15 is possible (e.g., 5, 5, 15, 5 = 30).",
+      B: "12 is possible (e.g., 6, 6, 12, 6 = 30).",
+      D: "9 is possible (e.g., 6, 7, 9, 8 = 30).",
+    },
+  },
+
+  // 6. Elimination Reasoning (Complex Matrix Elimination)
+  {
+    id: "logic-elm-03",
+    category: "elimination_reasoning",
+    subSkill: "Double-attribute matrix elimination",
+    difficulty: 3,
+    premises: "Three students (Kiran, Liam, Noah) each study one unique language (French, German, Latin) and play one unique sport (Cricket, Tennis, Rowing).\n1. The German student rows.\n2. Kiran does not row and does not study Latin.\n3. Liam plays cricket.",
+    question: "What language does Liam study?",
+    options: [
+      { id: "A", text: "French" },
+      { id: "B", text: "German" },
+      { id: "C", text: "Latin" },
+      { id: "D", text: "Cannot be deduced" },
+    ],
+    correctAnswer: "C",
+    explanation: "German student rows (Clue 1). Liam plays cricket (Clue 3), so Liam is NOT the German student. Kiran does not row (Clue 2), so Kiran is NOT German. Therefore Noah must row and study German. Kiran does not study Latin (Clue 2) and is not German, so Kiran studies French. By elimination, Liam studies Latin.",
+    commonErrorFeedback: {
+      A: "Kiran studies French because Kiran cannot be German or Latin.",
+      B: "Liam plays cricket, whereas the German student must row.",
+    },
+  },
+
+  // 7. Truth / Lie Logic (Alternating / Conditional Liars)
+  {
+    id: "logic-trl-03",
+    category: "truth_lie",
+    subSkill: "Self-referential contradiction analysis",
+    difficulty: 3,
+    premises: "Three islanders (X, Y, Z) speak:\n- X says: 'Y is a liar.'\n- Y says: 'Z is a liar.'\n- Z says: 'Both X and Y are liars.'\nEvery islander is either always a truth-teller or always a liar.",
+    question: "Who is telling the truth?",
+    options: [
+      { id: "A", text: "X only" },
+      { id: "B", text: "Y only" },
+      { id: "C", text: "Z only" },
+      { id: "D", text: "X and Z" },
+    ],
+    correctAnswer: "B",
+    explanation: "If Z were a truth-teller, X and Y must both be liars. But if Y is a liar, X's claim ('Y is a liar') would be true, meaning X is a truth-teller—contradicting Z! Thus Z is a liar. Since Z is a liar, Y's statement ('Z is a liar') is true, making Y a truth-teller. Since Y is a truth-teller, X's statement is false, making X a liar. Only Y tells the truth.",
+    commonErrorFeedback: {
+      C: "If Z tells the truth, X must lie, which would make Y a truth-teller, creating an impossible contradiction.",
+      A: "If X tells truth, Y lies, making Z's statement true, leading to conflict.",
+    },
+  },
+
+  // 8. Constraint Satisfaction (Capacity & Assignment)
+  {
+    id: "logic-cst-03",
+    category: "constraint_satisfaction",
+    subSkill: "Knapsack / exact sum under exclusions",
+    difficulty: 3,
+    premises: "A team of 3 must be chosen from 5 candidates {A, B, C, D, E} with scores {2, 3, 4, 5, 6}.\n- Total score must equal exactly 12.\n- A and E refuse to work together.\n- If C is chosen, B must also be chosen.",
+    question: "Which candidate MUST be on the team?",
+    options: [
+      { id: "A", text: "Candidate B" },
+      { id: "B", text: "Candidate C" },
+      { id: "C", text: "Candidate D" },
+      { id: "D", text: "Candidate E" },
+    ],
+    correctAnswer: "C",
+    explanation: "Triplets summing to 12 from {2, 3, 4, 5, 6}: (2,4,6) = {A,C,E} (violates A-E rule); (3,4,5) = {B,C,D} (C included, B included? Yes, valid!); (2,3,7 no). Any other? (2,5,5 no). Only valid team is {B, C, D}. In this team, Candidate D is included.",
+    commonErrorFeedback: {
+      D: "E cannot be paired with A (sum 12 with E=6 requires A=2 and C=4, which violates the A-E refusal).",
+      A: "While B is on the team, D is also on it, but verify C's rule: {B,C,D} works. D is strictly present in the sole solution.",
+    },
+  },
+
+  // 9. Pattern Recognition (Non-standard transformations & matrices)
+  {
+    id: "logic-pat-03",
+    category: "pattern_recognition",
+    subSkill: "Second-order differences in number patterns",
+    difficulty: 3,
+    premises: "Examine the sequence: 2, 5, 11, 20, 32, ...",
+    question: "What is the next number in the sequence?",
+    options: [
+      { id: "A", text: "45" },
+      { id: "B", text: "47" },
+      { id: "C", text: "46" },
+      { id: "D", text: "48" },
+    ],
+    correctAnswer: "B",
+    explanation: "First differences: 5-2=3, 11-5=6, 20-11=9, 32-20=12. The differences increase by 3 each step (+3, +6, +9, +12). Next difference is +15: 32 + 15 = 47.",
+    commonErrorFeedback: {
+      A: "Added 13 instead of 15.",
+      C: "Calculation error in difference series.",
+      D: "Added 16 instead of 15.",
+    },
+  },
+
+  // 10. Number Logic (Modular & Remainder Arithmetic)
+  {
+    id: "logic-num-03",
+    category: "number_logic",
+    subSkill: "Simultaneous congruence / calendar cycles",
+    difficulty: 3,
+    premises: "A school bell rings every 6 minutes. A music chime plays every 8 minutes. Both sound together at 9:00 AM.\nA warning siren sounds every 15 minutes, starting at 9:00 AM.",
+    question: "When is the next time all THREE sound simultaneously?",
+    options: [
+      { id: "A", text: "10:00 AM" },
+      { id: "B", text: "10:30 AM" },
+      { id: "C", text: "11:00 AM" },
+      { id: "D", text: "11:30 AM" },
+    ],
+    correctAnswer: "C",
+    explanation: "Find the Least Common Multiple (LCM) of 6, 8, and 15. Prime factorizations: 6=2×3, 8=2³, 15=3×5. LCM = 2³ × 3 × 5 = 8 × 3 × 5 = 120 minutes = 2 hours. 9:00 AM + 2 hours = 11:00 AM.",
+    commonErrorFeedback: {
+      A: "60 minutes is not divisible by 8 (60/8 = 7.5).",
+      B: "90 minutes is not divisible by 8.",
+    },
+  },
+
+  // 11. Classification & Odd-One-Out (Abstract Relations)
+  {
+    id: "logic-cls-03",
+    category: "classification_odd_one",
+    subSkill: "Second-order relational analogy",
+    difficulty: 3,
+    premises: "Analyze the relationship pairs:\n1. Hive : Bee\n2. Warren : Rabbit\n3. Web : Spider\n4. Stable : Horse",
+    question: "Which pair is the odd-one-out based on how the habitat is constructed?",
+    options: [
+      { id: "A", text: "Hive : Bee" },
+      { id: "B", text: "Warren : Rabbit" },
+      { id: "C", text: "Web : Spider" },
+      { id: "D", text: "Stable : Horse" },
+    ],
+    correctAnswer: "D",
+    explanation: "A hive, warren, and web are natural habitats built/produced by the animals themselves. A stable is an artificial structure built by humans for the horse.",
+    commonErrorFeedback: {
+      C: "Web is created by the spider, consistent with hive and warren.",
+      B: "Warren is excavated by rabbits.",
+    },
+  },
+
+  // 12. Pigeonhole / Worst-Case Guarantee (Multi-attribute draws)
+  {
+    id: "logic-pgh-03",
+    category: "pigeonhole_guarantee",
+    subSkill: "Two-pair guarantee with unequal distributions",
+    difficulty: 3,
+    premises: "A bag contains 8 red, 6 blue, 4 green, and 2 yellow counters. You draw counters blindly.",
+    question: "What is the minimum number of counters you must draw to GUARANTEE you have at least one green counter?",
+    options: [
+      { id: "A", text: "5" },
+      { id: "B", text: "16" },
+      { id: "C", text: "17" },
+      { id: "D", text: "19" },
+    ],
+    correctAnswer: "C",
+    explanation: "Worst-case scenario: you draw every non-green counter first. Non-green counters = 8 red + 6 blue + 2 yellow = 16 counters. The 17th counter must be green.",
+    commonErrorFeedback: {
+      B: "16 counters could be all the red, blue, and yellow counters, leaving zero green.",
+      A: "5 counters could all be red.",
+      D: "19 is more than necessary; 17 guarantees a green.",
+    },
+  },
+
+  // 13. Rule Testing & Counterexample Reasoning (Hypothesis Testing & Falsification)
+  {
+    id: "logic-rul-03",
+    category: "rule_testing_counterexample",
+    subSkill: "Falsifying a conditional with negation",
+    difficulty: 3,
+    premises: "Science rule proposed: 'Whenever liquid X is heated above 80°C, it turns blue.'\nA student performs four experiments:\n1. Heated to 90°C → turns blue\n2. Heated to 70°C → turns blue\n3. Heated to 85°C → turns clear\n4. Heated to 60°C → turns clear",
+    question: "Which single experiment definitively disproves the rule?",
+    options: [
+      { id: "A", text: "Experiment 1" },
+      { id: "B", text: "Experiment 2" },
+      { id: "C", text: "Experiment 3" },
+      { id: "D", text: "Experiment 4" },
+    ],
+    correctAnswer: "C",
+    explanation: "To disprove 'Above 80°C → Blue', we need a case where the condition IS met (> 80°C) but the outcome FAILS (not blue). Experiment 3 was 85°C (>80°C) and turned clear, proving the rule false.",
+    commonErrorFeedback: {
+      B: "Experiment 2 is at 70°C; the rule says nothing about what happens below 80°C.",
+      A: "Experiment 1 supports the rule rather than disproving it.",
+      D: "Experiment 4 is below 80°C, so it does not test the condition.",
+    },
+  },
 ];
