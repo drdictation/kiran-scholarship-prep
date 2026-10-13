@@ -63,7 +63,9 @@ export type ExerciseType =
   | "one_step_only"
   | "logic_reasoning"
   | "clear_and_complete"
-  | "sentence_sprint";
+  | "sentence_sprint"
+  | "sentence_gym"
+  | "sentence_retraining";
 
 export type SprintLevel = 1 | 2 | 3 | 4 | 5;
 export type SprintKind = "write" | "fix" | "stop";
@@ -553,3 +555,81 @@ export interface ParagraphRewriteEvaluation {
   feedback: string;
   xpAwarded: number;
 }
+
+export type SentenceRetrainingDrillType = "rebuild" | "constrained" | "independent";
+
+export type SentenceRetrainingErrorType =
+  | "VAGUE_SUBJECT"
+  | "VAGUE_VERB"
+  | "AWKWARD_COLLOCATION"
+  | "MISSING_MECHANISM"
+  | "GRAMMATICAL_ERROR"
+  | "REPETITION"
+  | "UNNECESSARY_WORDS"
+  | "SENTENCE_FRAGMENT"
+  | "RUN_ON_SENTENCE"
+  | "MEANING_CHANGED";
+
+export type RetrainingConstraintType =
+  | "start_with_subject"
+  | "precise_action_verb"
+  | "causal_conjunction"
+  | "avoid_vague_words"
+  | "word_count_15_25";
+
+export interface SentenceRetrainingPrompt {
+  id: string;
+  drillType: SentenceRetrainingDrillType;
+  domain: TopicDomain;
+  targetSkillOrError?: SentenceRetrainingErrorType;
+  // Rebuild
+  originalSentence?: string;
+  context?: string;
+  // Constrained
+  notes?: string[];
+  constraint?: RetrainingConstraintType;
+  constraintDescription?: string;
+  // Independent
+  proposition?: string;
+  // Feedback & comparison
+  modelAnswer: string;
+  structuralExplanation?: string;
+  timeLimitSeconds: number; // 60 for rebuild/constrained, 75 for independent
+}
+
+export interface SentenceRetrainingEvaluation {
+  valid: boolean;
+  score: number; // 0 - 10
+  passed: boolean; // score >= 7 and no disqualifying defect
+  clarity: number; // 0 - 2
+  naturalness: number; // 0 - 2
+  precision: number; // 0 - 2
+  causalCompleteness: number; // 0 - 2
+  compliance: number; // 0 - 2
+  defect?: SentenceRetrainingErrorType;
+  problematicPhrase?: string;
+  feedback: string; // 1 short sentence child-friendly
+  structuralDifference?: string; // shown after retry limit or pass
+  prohibitedOpening?: string; // opening that cannot be reused if opening was the defect
+  xpAwarded: number;
+}
+
+export interface RetrainingMastery {
+  skillKey: string;
+  firstAttemptSuccessTopics: string[];
+  hasIndependentSuccess: boolean;
+  mastered: boolean;
+}
+
+export interface SentenceRetrainingState {
+  errorFrequencies: Record<SentenceRetrainingErrorType, number>;
+  errorCorrections: Record<SentenceRetrainingErrorType, number>;
+  firstAttemptCount: number;
+  firstAttemptPassCount: number;
+  retrySuccessCount: number;
+  retryTotalCount: number;
+  independentCount: number;
+  independentPassCount: number;
+  masteredSkills: Record<string, RetrainingMastery>;
+}
+

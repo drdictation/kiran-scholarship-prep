@@ -27,6 +27,8 @@ import { ThreeParagraphPlan } from "@/components/games/ThreeParagraphPlan";
 import { LogicLab } from "@/components/games/LogicLab";
 import { ClearAndComplete } from "@/components/games/ClearAndComplete";
 import { SentenceSprint } from "@/components/games/SentenceSprint";
+import { SentenceGym } from "@/components/games/SentenceGym";
+import { SentenceRetraining } from "@/components/games/SentenceRetraining";
 import {
   Flame,
   Sparkles,
@@ -197,6 +199,19 @@ export function StudentHome() {
     return <SentenceSprint onComplete={refreshProfile} onBack={() => setActiveMode(null)} />;
   }
 
+  if (activeMode === "sentence_gym") {
+    return <SentenceGym onComplete={refreshProfile} onBack={() => setActiveMode(null)} />;
+  }
+
+  if (activeMode === "sentence_retraining") {
+    return (
+      <SentenceRetraining
+        onComplete={refreshProfile}
+        onBack={() => setActiveMode(null)}
+      />
+    );
+  }
+
   if (activeMode === "clear_and_complete") {
     return (
       <ClearAndComplete
@@ -298,6 +313,67 @@ export function StudentHome() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Priority: SENTENCE RETRAINING MODE */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("sentence_retraining")}
+            className="p-5 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-2xl border-2 border-indigo-400 hover:border-indigo-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between col-span-1 md:col-span-2 lg:col-span-1"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs font-black">
+                <Target className="w-5 h-5 text-amber-300" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-500 text-white px-2.5 py-0.5 rounded-full">
+                  New Retraining Mode
+                </span>
+                <span className="text-[10px] font-bold text-indigo-200 bg-white/10 px-2 py-0.5 rounded-full">
+                  3 Drill Tiers
+                </span>
+              </div>
+              <h3 className="font-black text-white group-hover:text-amber-300 transition-colors text-base">
+                Sentence Retraining
+              </h3>
+              <p className="text-xs text-indigo-200 mt-1 leading-relaxed">
+                Eliminate habitual awkward openings, vague outcomes, and comma splices. Rebuild, Constrained, and Independent drills.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-800 flex items-center justify-between text-xs font-bold text-amber-300">
+              <span>Start 7-Drill Session (8–10m)</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+          {/* Priority: SENTENCE GYM RAPID GENERATIVE DRILL */}
+          <button
+            type="button"
+            onClick={() => setActiveMode("sentence_gym")}
+            className="p-5 bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 text-white rounded-2xl border-2 border-amber-400 hover:border-amber-300 hover:shadow-xl transition-all text-left group flex flex-col justify-between col-span-1 md:col-span-2 lg:col-span-1"
+          >
+            <div>
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-indigo-950 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-xs font-black">
+                <Zap className="w-5 h-5 fill-indigo-950" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-indigo-950 px-2.5 py-0.5 rounded-full">
+                  High-Speed MVP
+                </span>
+                <span className="text-[10px] font-bold text-amber-200 bg-white/10 px-2 py-0.5 rounded-full">
+                  40–80 Reps
+                </span>
+              </div>
+              <h3 className="font-black text-white group-hover:text-amber-300 transition-colors text-base">
+                Sentence Gym
+              </h3>
+              <p className="text-xs text-indigo-200 mt-1 leading-relaxed">
+                Rapid generative workout: Sentence Builder, Causal Bridge, Fix &amp; Compress, and Next Sentence. Instant 1-line feedback.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-indigo-700/60 flex items-center justify-between text-xs font-bold text-amber-300">
+              <span>Enter 10–40m Workout</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
           {/* Priority: CLEAR & COMPLETE REASONING DRILL */}
           <button
             type="button"

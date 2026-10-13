@@ -6,6 +6,10 @@ import {
   TransferStatus,
   LogicAttemptRecord,
   FlaggedSentence,
+  SentenceRetrainingState,
+  SentenceRetrainingErrorType,
+  SentenceRetrainingPrompt,
+  RetrainingMastery,
 } from "@/types";
 import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
 import { computeLogicProfile } from "@/lib/logic-scoring";
@@ -409,10 +413,22 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
       updateRollingScore("causal_reasoning", attempt.score);
       break;
 
+    case "sentence_gym":
+      updateRollingScore("causal_reasoning", attempt.score, 0.25);
+      updateRollingScore("causal_progression", attempt.score, 0.25);
+      updateRollingScore("sentence_combining", attempt.score, 0.25);
+      break;
+
     case "clear_and_complete":
       updateRollingScore("causal_progression", attempt.score, 0.35);
       updateRollingScore("consequence_reasoning", attempt.score, 0.35);
       updateRollingScore("causal_reasoning", attempt.score, 0.35);
+      break;
+
+    case "sentence_retraining":
+      updateRollingScore("causal_reasoning", attempt.score, 0.3);
+      updateRollingScore("sentence_combining", attempt.score, 0.3);
+      updateRollingScore("causal_progression", attempt.score, 0.3);
       break;
   }
 
@@ -488,3 +504,200 @@ export function getSprintMedianSeconds(): number | null {
   const mid = Math.floor(times.length / 2);
   return times.length % 2 ? times[mid] : Math.round((times[mid - 1] + times[mid]) / 2);
 }
+
+/* ---------- Sentence Retraining: Error tracking, Adaptive Loop, Mastery ---------- */
+const RETRAINING_KEY = "kiran_prep_retraining_v1";
+
+const DEFAULT_RETRAINING_STATE: SentenceRetrainingState = {
+  errorFrequencies: {
+    VAGUE_SUBJECT: 0,
+    VAGUE_VERB: 0,
+    AWKWARD_COLLOCATION: 0,
+    MISSING_MECHANISM: 0,
+    GRAMMATICAL_ERROR: 0,
+    REPETITION: 0,
+    UNNECESSARY_WORDS: 0,
+    SENTENCE_FRAGMENT: 0,
+    RUN_ON_SENTENCE: 0,
+    MEANING_CHANGED: 0,
+  },
+  errorCorrections: {
+    VAGUE_SUBJECT: 0,
+    VAGUE_VERB: 0,
+    AWKWARD_COLLOCATION: 0,
+    MISSING_MECHANISM: 0,
+    GRAMMATICAL_ERROR: 0,
+    REPETITION: 0,
+    UNNECESSARY_WORDS: 0,
+    SENTENCE_FRAGMENT: 0,
+    RUN_ON_SENTENCE: 0,
+    MEANING_CHANGED: 0,
+  },
+  firstAttemptCount: 0,
+  firstAttemptPassCount: 0,
+  retrySuccessCount: 0,
+  retryTotalCount: 0,
+  independentCount: 0,
+  independentPassCount: 0,
+  masteredSkills: {},
+};
+
+export function getRetrainingState(): SentenceRetrainingState {
+  if (typeof window === "undefined") return DEFAULT_RETRAINING_STATE;
+  try {
+    const raw = localStorage.getItem(RETRAINING_KEY);
+    if (!raw) return DEFAULT_RETRAINING_STATE;
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_RETRAINING_STATE,
+      ...parsed,
+      errorFrequencies: {
+        ...DEFAULT_RETRAINING_STATE.errorFrequencies,
+        ...(parsed.errorFrequencies || {}),
+      },
+      errorCorrections: {
+        ...DEFAULT_RETRAINING_STATE.errorCorrections,
+        ...(parsed.errorCorrections || {}),
+      },
+      masteredSkills: parsed.masteredSkills || {},
+    };
+  } catch {
+    return DEFAULT_RETRAINING_STATE;
+  }
+}
+
+export function saveRetrainingState(state: SentenceRetrainingState): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(RETRAINING_KEY, JSON.stringify(state));
+  } catch (err) {
+    console.error("Failed to save retraining state:", err);
+  }
+}
+
+export function getTopPersistentErrors(): SentenceRetrainingErrorType[] {
+  const state = getRetrainingState();
+  const errors = Object.keys(state.errorFrequencies) as SentenceRetrainingErrorType[];
+  return errors
+    .map((err) => ({
+      err,
+      net: (state.errorFrequencies[err] || 0) - (state.errorCorrections[err] || 0),
+      raw: state.errorFrequencies[err] || 0,
+    }))
+    .filter((item) => item.raw > 0)
+    .sort((a, b) => b.net - a.net || b.raw - a.raw)
+    .map((item) => item.err);
+}
+
+export function buildRetrainingSession(
+  allPrompts: SentenceRetrainingPrompt[]
+): SentenceRetrainingPrompt[] {
+  const persistentErrors = getTopPersistentErrors();
+  const usedIds = new Set<string>();
+  const sessionPrompts: SentenceRetrainingPrompt[] = [];
+
+  const pickForType = (
+    drillType: "rebuild" | "constrained" | "independent",
+    count: number
+  ) => {
+    let pool = allPrompts.filter((p) => p.drillType === drillType && !usedIds.has(p.id));
+    if (persistentErrors.length > 0) {
+      const targeted = pool.filter(
+        (p) => p.targetSkillOrError && persistentErrors.includes(p.targetSkillOrError)
+      );
+      if (targeted.length > 0) {
+        targeted.sort(() => 0.5 - Math.random());
+        for (const item of targeted) {
+          if (count <= 0) break;
+          sessionPrompts.push(item);
+          usedIds.add(item.id);
+          count--;
+        }
+      }
+    }
+    pool = pool.filter((p) => !usedIds.has(p.id));
+    pool.sort(() => 0.5 - Math.random());
+    while (count > 0 && pool.length > 0) {
+      const item = pool.pop()!;
+      sessionPrompts.push(item);
+      usedIds.add(item.id);
+      count--;
+    }
+  };
+
+  pickForType("rebuild", 2);
+  pickForType("constrained", 3);
+  pickForType("independent", 2);
+
+  return sessionPrompts;
+}
+
+export function updateRetrainingMastery(
+  skillKey: string,
+  domain: string,
+  isIndependent: boolean,
+  isFirstAttemptSuccess: boolean,
+  isRetrySuccess: boolean,
+  flaggedDefect?: SentenceRetrainingErrorType
+): { state: SentenceRetrainingState; newlyMastered: boolean } {
+  const state = getRetrainingState();
+  let newlyMastered = false;
+
+  if (isFirstAttemptSuccess) {
+    state.firstAttemptCount += 1;
+    state.firstAttemptPassCount += 1;
+    if (isIndependent) {
+      state.independentCount += 1;
+      state.independentPassCount += 1;
+    }
+
+    if (!state.masteredSkills[skillKey]) {
+      state.masteredSkills[skillKey] = {
+        skillKey,
+        firstAttemptSuccessTopics: [domain],
+        hasIndependentSuccess: isIndependent,
+        mastered: false,
+      };
+    } else {
+      const entry = state.masteredSkills[skillKey];
+      if (!entry.firstAttemptSuccessTopics.includes(domain)) {
+        entry.firstAttemptSuccessTopics.push(domain);
+      }
+      if (isIndependent) {
+        entry.hasIndependentSuccess = true;
+      }
+      if (
+        !entry.mastered &&
+        entry.firstAttemptSuccessTopics.length >= 3 &&
+        entry.hasIndependentSuccess
+      ) {
+        entry.mastered = true;
+        newlyMastered = true;
+      }
+    }
+  } else {
+    state.firstAttemptCount += 1;
+    if (isIndependent) {
+      state.independentCount += 1;
+    }
+    if (flaggedDefect) {
+      state.errorFrequencies[flaggedDefect] =
+        (state.errorFrequencies[flaggedDefect] || 0) + 1;
+    }
+  }
+
+  if (isRetrySuccess) {
+    state.retryTotalCount += 1;
+    state.retrySuccessCount += 1;
+    if (flaggedDefect) {
+      state.errorCorrections[flaggedDefect] =
+        (state.errorCorrections[flaggedDefect] || 0) + 1;
+    }
+  } else if (!isFirstAttemptSuccess) {
+    state.retryTotalCount += 1;
+  }
+
+  saveRetrainingState(state);
+  return { state, newlyMastered };
+}
+

@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { StudentProfile, AttemptLog, SkillId, TopicDomain } from "@/types";
-import { getProfile, getAttempts, saveProfile, getSprintMedianSeconds, getSprintState } from "@/lib/storage";
+import { StudentProfile, AttemptLog, SkillId, TopicDomain, SentenceRetrainingErrorType } from "@/types";
+import {
+  getProfile,
+  getAttempts,
+  saveProfile,
+  getSprintMedianSeconds,
+  getSprintState,
+  getRetrainingState,
+  getTopPersistentErrors,
+} from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import { LogicDashboard } from "@/components/parent/LogicDashboard";
 import {
@@ -34,11 +42,15 @@ export function ParentDashboard() {
   const [webhookUrlInput, setWebhookUrlInput] = useState("");
   const [webhookSaveMsg, setWebhookSaveMsg] = useState(false);
   const [showWebhookGuide, setShowWebhookGuide] = useState(false);
+  const [retrainingState, setRetrainingState] = useState(getRetrainingState());
+  const [persistentErrors, setPersistentErrors] = useState(getTopPersistentErrors());
 
   useEffect(() => {
     const p = getProfile();
     setProfile(p);
     setAttempts(getAttempts());
+    setRetrainingState(getRetrainingState());
+    setPersistentErrors(getTopPersistentErrors());
     if (p.selectedModel) {
       setSelectedModel(p.selectedModel);
     }
@@ -377,6 +389,109 @@ export function ParentDashboard() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* SENTENCE RETRAINING TRAJECTORY (Persistent Errors & Independence) */}
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600" /> Sentence Retraining Trajectory
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tracks elimination of habitual awkward openings, comma splices, and vague causal links.
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 w-fit">
+            Adaptive 3-Tier Drill Loop
+          </span>
+        </div>
+
+        {/* 4 Core Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-500">First-Attempt Accuracy</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {retrainingState.firstAttemptCount > 0
+                ? `${Math.round((retrainingState.firstAttemptPassCount / retrainingState.firstAttemptCount) * 100)}%`
+                : "—"}
+            </div>
+            <span className="text-[11px] text-slate-500">
+              {retrainingState.firstAttemptPassCount}/{retrainingState.firstAttemptCount} without retry
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-500">Success After Correction</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {retrainingState.retryTotalCount > 0
+                ? `${Math.round((retrainingState.retrySuccessCount / retrainingState.retryTotalCount) * 100)}%`
+                : "—"}
+            </div>
+            <span className="text-[11px] text-slate-500">
+              {retrainingState.retrySuccessCount}/{retrainingState.retryTotalCount} retries fixed
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-500">Independent Sentence Accuracy</span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {retrainingState.independentCount > 0
+                ? `${Math.round((retrainingState.independentPassCount / retrainingState.independentCount) * 100)}%`
+                : "—"}
+            </div>
+            <span className="text-[11px] text-slate-500">
+              {retrainingState.independentPassCount}/{retrainingState.independentCount} unseen prompts
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+            <span className="text-[10px] font-bold uppercase text-emerald-800">Mastered Skills</span>
+            <div className="text-xl font-black text-emerald-950 mt-1">
+              {Object.values(retrainingState.masteredSkills || {}).filter((m) => m.mastered).length}
+            </div>
+            <span className="text-[11px] text-emerald-700">3 unique topics + 1 independent</span>
+          </div>
+        </div>
+
+        {/* Top Persistent Errors */}
+        <div className="space-y-3 pt-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            Error Category Recurrence &amp; Resolution
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            {Object.entries(retrainingState.errorFrequencies).map(([errKey, freq]) => {
+              const typedKey = errKey as SentenceRetrainingErrorType;
+              const corrected = retrainingState.errorCorrections[typedKey] || 0;
+              const isPersistent = persistentErrors.slice(0, 2).includes(typedKey);
+              return (
+                <div
+                  key={errKey}
+                  className={`p-2.5 rounded-xl border text-xs ${
+                    isPersistent
+                      ? "bg-amber-50/80 border-amber-300 text-amber-950"
+                      : "bg-slate-50 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-[10px] uppercase truncate block">
+                      {errKey.replace(/_/g, " ")}
+                    </span>
+                    {isPersistent && (
+                      <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-200 px-1 py-0.2 rounded">
+                        Focus
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-[11px]">
+                    <span>Flagged: {freq}</span>
+                    <span className="text-emerald-700 font-bold">Fixed: {corrected}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

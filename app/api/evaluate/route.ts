@@ -16,6 +16,9 @@ import {
   ClearAndCompleteSchema,
   ClearAndCompleteRewriteSchema,
   SentenceSprintSchema,
+  SentenceGymEvaluationSchema,
+  SentenceGymGenSchema,
+  SentenceRetrainingSchema,
 } from "@/lib/ai/openrouter";
 
 const VAGUE_TERMS = [
@@ -1143,6 +1146,350 @@ Return JSON: {"valid":true,"complete":n,"clear":n,"controlled":n,"efficient":n,"
 
         const raw = await callOpenRouter(systemPrompt, "Mark the sprint sentence(s).", selectedModel, 400);
         return NextResponse.json(SentenceSprintSchema.parse(raw));
+      }
+
+      /* ============================================================
+         Sentence Gym: High-Speed 1-Line Evaluator (P0)
+         ============================================================ */
+      case "sentence_gym": {
+        const { gymType, promptContext, studentText } = payload || {};
+        const text = String(studentText || "").trim();
+
+        if (!hasApiKey) {
+          const words = text.split(/\s+/).filter(Boolean);
+          const hasVague = VAGUE_TERMS.some((w) => text.toLowerCase().includes(w));
+          let rating: "Strong" | "Almost" | "Needs work" = "Strong";
+          let score = 90;
+          let feedback = "Strong — clear cause and effect.";
+
+          if (words.length < 5) {
+            rating = "Needs work";
+            score = 40;
+            feedback = "Needs work — sentence is too brief to explain the link.";
+          } else if (hasVague) {
+            rating = "Almost";
+            score = 65;
+            feedback = "Almost — specify the actual consequence instead of vague words like 'better' or 'happy'.";
+          } else if (gymType === "next_sentence" && text.length > 0 && promptContext?.sentence1 && text.toLowerCase().includes(promptContext.sentence1.toLowerCase().slice(0, 15))) {
+            rating = "Almost";
+            score = 60;
+            feedback = "Almost — develop the consequence further rather than restating the premise.";
+          }
+
+          return NextResponse.json({
+            valid: true,
+            rating,
+            score,
+            feedback,
+            improvedSentence: rating !== "Strong" ? "A focused sentence linking the mechanism directly to the outcome." : undefined,
+          });
+        }
+
+        const systemPrompt = `You evaluate rapid generative sentence drills for a Grade 5 Australian scholarship student.
+Gym Mode: "${gymType}" (builder | bridge | fix_compress | next_sentence)
+Prompt Context: ${JSON.stringify(promptContext || {})}
+Student wrote: "${text}"
+
+EVALUATION PRINCIPLES:
+- builder: 1 clean sentence combining notes. Must preserve mechanism, be concise, avoid vague runaway leaps.
+- bridge: A -> ? -> C. Missing middle mechanism between A and C. Do not leap straight to C or vague happiness.
+- fix_compress: Shorten and clarify weak runaway sentence while preserving core meaning.
+- next_sentence: Sentence 1 is given. Student writes Sentence 2. Must genuinely ADD concrete reasoning/mechanism/consequence, logically follow Sentence 1, avoid merely restating Sentence 1, and avoid vague unsupported leaps.
+
+Return JSON adhering strictly to:
+{
+  "valid": true,
+  "rating": "Strong" | "Almost" | "Needs work",
+  "score": number between 0 and 100,
+  "feedback": "MAXIMUM 1 short, actionable sentence. e.g. 'Strong — clear cause and effect.' or 'Almost — Sentence 2 repeats Sentence 1 rather than developing it.' or 'Needs work — explain the specific link rather than jumping to success.'",
+  "improvedSentence": "ONE concise Grade 5 model sentence if rating is Almost or Needs work (optional if Strong)"
+}`;
+
+        const raw = await callOpenRouter(systemPrompt, "Evaluate sentence rapidly.", selectedModel, 250);
+        return NextResponse.json(SentenceGymEvaluationSchema.parse(raw));
+      }
+
+      /* ============================================================
+         Sentence Gym: Dynamic Question Generation (P1)
+         ============================================================ */
+      case "generate_sentence_gym": {
+        const { targetType, domain } = payload || {};
+        const chosenType = targetType || ["builder", "bridge", "fix_compress", "next_sentence"][Math.floor(Math.random() * 4)];
+        const domains = [
+          "environment", "transport", "technology", "health", "science", "space", "animals",
+          "community", "economics", "history", "sport", "culture", "public_policy", "everyday_life"
+        ];
+        const chosenDomain = domain || domains[Math.floor(Math.random() * domains.length)];
+
+        if (!hasApiKey) {
+          return NextResponse.json(
+            { error: "No API key configured for dynamic question generation" },
+            { status: 503 }
+          );
+        }
+
+        const systemPrompt = `You generate ONE diagnostic Grade 5 scholarship sentence question.
+Operation: "${chosenType}" (one of: builder, bridge, fix_compress, next_sentence)
+Domain: "${chosenDomain}"
+Scholarship exam level ( EduTest / ACER style, realistic Australian context, high intellectual quality ).
+Do NOT disproportionately generate school/children topics. Use broad scholarship domains.
+
+Specs per operation:
+- builder: notes: array of 3-5 concise bullet notes. promptInstruction: "Combine these notes into ONE clean, controlled sentence."
+- bridge: pointA: "A...", conclusionC: "C...". promptInstruction: "Explain the missing mechanism that connects A to C."
+- fix_compress: weakSentence: realistic wordy/runaway Grade 5 sentence. promptInstruction: "Rewrite this clearly and concisely in one sentence."
+- next_sentence: sentence1: clear initial premise sentence. promptInstruction: "Write the NEXT sentence. Add to the reasoning — do not repeat it."
+
+Return JSON adhering strictly to:
+{
+  "id": "gen-gym-${Date.now()}-${Math.floor(Math.random()*1000)}",
+  "type": "${chosenType}",
+  "domain": "${chosenDomain}",
+  "title": "Short 2-4 word topic title",
+  ${chosenType === "builder" ? '"notes": ["note 1", "note 2", "note 3"],' : ""}
+  ${chosenType === "bridge" ? '"pointA": "premise sentence", "conclusionC": "end conclusion sentence",' : ""}
+  ${chosenType === "fix_compress" ? '"weakSentence": "realistic wordy runaway sentence",' : ""}
+  ${chosenType === "next_sentence" ? '"sentence1": "Sentence 1 statement",' : ""}
+  "promptInstruction": "Instruction for student",
+  "modelAnswer": "One strong Grade 5 model sentence"
+}`;
+
+        const raw = await callOpenRouter(systemPrompt, `Generate novel ${chosenType} item`, selectedModel, 400);
+        return NextResponse.json(SentenceGymGenSchema.parse(raw));
+      }
+
+      /* ============================================================
+         Sentence Retraining Mode (Grade 5 Scholarship Deliberate Practice)
+         ============================================================ */
+      case "sentence_retraining": {
+        const {
+          drillType,
+          originalSentence,
+          context,
+          notes,
+          constraint,
+          constraintDescription,
+          proposition,
+          modelAnswer,
+          structuralExplanation,
+          studentText,
+          attemptNumber = 1,
+          prohibitedOpening,
+        } = payload || {};
+
+        const text = String(studentText || "").trim();
+        const words = text.split(/\s+/).filter(Boolean);
+        const lower = text.toLowerCase();
+
+        // 1. Objective / Deterministic checks
+        let objectiveDefect: any = null;
+        let objectiveFeedback = "";
+        let objectivePhrase = "";
+        let newProhibitedOpening = prohibitedOpening || "";
+
+        // Prohibited opening check (e.g. from previous attempt)
+        if (prohibitedOpening && lower.startsWith(prohibitedOpening.toLowerCase())) {
+          objectiveDefect = "VAGUE_SUBJECT";
+          objectivePhrase = text.slice(0, prohibitedOpening.length);
+          objectiveFeedback = `Do not copy '${objectivePhrase}'. Start with the actual subject and describe what it causes.`;
+        }
+
+        // Drill-specific checks
+        if (!objectiveDefect && drillType === "constrained") {
+          if (constraint === "avoid_vague_words") {
+            const forbidden = ["things", "thing", "good", "better", "helps", "help", "helping"];
+            const found = forbidden.find((w) => lower.match(new RegExp(`\\b${w}\\b`, "i")));
+            if (found) {
+              objectiveDefect = "VAGUE_VERB";
+              objectivePhrase = found;
+              objectiveFeedback = `Constraint broken: avoid using '${found}'. Describe the precise action or consequence.`;
+            }
+          } else if (constraint === "word_count_15_25") {
+            if (words.length < 15 || words.length > 25) {
+              objectiveDefect = words.length < 15 ? "SENTENCE_FRAGMENT" : "UNNECESSARY_WORDS";
+              objectivePhrase = `${words.length} words`;
+              objectiveFeedback = `Constraint broken: your sentence has ${words.length} words (must be 15–25 words).`;
+            }
+          } else if (constraint === "causal_conjunction") {
+            const hasConj = /\b(because|by|so)\b/i.test(text);
+            if (!hasConj) {
+              objectiveDefect = "MISSING_MECHANISM";
+              objectivePhrase = text;
+              objectiveFeedback = "Constraint broken: use 'because', 'by', or 'so' to explain the mechanism.";
+            }
+          } else if (constraint === "start_with_subject") {
+            if (/^(this|there|it)\b/i.test(text)) {
+              objectiveDefect = "VAGUE_SUBJECT";
+              objectivePhrase = words.slice(0, 2).join(" ");
+              objectiveFeedback = "Constraint broken: start directly with the actual subject instead of 'This' or 'It'.";
+              newProhibitedOpening = words.slice(0, 2).join(" ");
+            }
+          }
+        }
+
+        // Rebuild superficial synonym check
+        if (!objectiveDefect && drillType === "rebuild" && originalSentence) {
+          const origLower = originalSentence.toLowerCase();
+          if (origLower.startsWith("this can help") && lower.startsWith("this can assist")) {
+            objectiveDefect = "REPETITION";
+            objectivePhrase = words.slice(0, 3).join(" ");
+            objectiveFeedback = "Superficial edit rejected. Do not merely swap synonyms while keeping the original structure.";
+            newProhibitedOpening = words.slice(0, 3).join(" ");
+          } else if (/^(this\s+(can\s+)?(help|provides?|make))\b/i.test(text)) {
+            objectiveDefect = "VAGUE_SUBJECT";
+            objectivePhrase = words.slice(0, 3).join(" ");
+            objectiveFeedback = `Do not keep '${objectivePhrase}'. Start with the actual subject and explain what it does.`;
+            newProhibitedOpening = objectivePhrase;
+          }
+        }
+
+        // Comma splice check
+        if (!objectiveDefect && /,\s*(they|it|we|people|this|students|drivers)\s+[a-z]+/i.test(text)) {
+          objectiveDefect = "RUN_ON_SENTENCE";
+          objectivePhrase = text.match(/,\s*(they|it|we|people|this|students|drivers)\s+[a-z]+/i)?.[0] || ", they";
+          objectiveFeedback = "Comma splice detected. Join the two clauses with a conjunction (like 'and' or 'so') or use a subordinator.";
+        }
+
+        // Determine XP multiplier by attempt
+        const calcXp = (pass: boolean, isIndep: boolean, att: number) => {
+          if (!pass) return 2;
+          const base = isIndep ? 20 : 15;
+          if (att === 1) return base;
+          if (att === 2) return Math.round(base * 0.5);
+          return Math.round(base * 0.25);
+        };
+
+        if (!hasApiKey) {
+          // Heuristic Fallback
+          const isIndep = drillType === "independent";
+          let clarity = 2;
+          let naturalness = 2;
+          let precision = 2;
+          let causalCompleteness = 2;
+          let compliance = 2;
+
+          if (words.length < 6) {
+            clarity = 1;
+            causalCompleteness = 0;
+            objectiveDefect = objectiveDefect || "SENTENCE_FRAGMENT";
+            objectiveFeedback = objectiveFeedback || "Your sentence is too short to explain the mechanism.";
+          }
+
+          if (objectiveDefect) {
+            compliance = 1;
+            naturalness = 1;
+            clarity = 1;
+          }
+
+          let score = clarity + naturalness + precision + causalCompleteness + compliance;
+          if (objectiveDefect && score > 6) {
+            score = 6;
+          }
+          const passed = score >= 7 && !objectiveDefect;
+          const xpAwarded = calcXp(passed, isIndep, attemptNumber);
+
+          return NextResponse.json({
+            valid: true,
+            score,
+            passed,
+            clarity,
+            naturalness,
+            precision,
+            causalCompleteness,
+            compliance,
+            defect: objectiveDefect || undefined,
+            problematicPhrase: objectivePhrase || undefined,
+            feedback: objectiveFeedback || (passed ? "Strong, clear sentence with complete causal explanation." : "Needs work on sentence structure and precision."),
+            structuralDifference: structuralExplanation || "The model sentence names the true subject and explains the physical mechanism directly.",
+            prohibitedOpening: newProhibitedOpening || undefined,
+            xpAwarded,
+          });
+        }
+
+        // Strict LLM Rubric
+        const systemPrompt = `You are a calibrated, strict Australian Grade 5 scholarship exam writing coach evaluating a single sentence in "Sentence Retraining Mode".
+Your goal is to eliminate habitual awkward constructions, vague openings, and superficial synonyms, ensuring the student writes clear, natural, logically complete sentences independently.
+
+DRILL TYPE: ${drillType}
+${originalSentence ? `ORIGINAL AWKWARD SENTENCE: "${originalSentence}"` : ""}
+${context ? `CONTEXT: "${context}"` : ""}
+${notes ? `NOTES PROVIDED: ${JSON.stringify(notes)}` : ""}
+${constraintDescription ? `MANDATORY CONSTRAINT: "${constraintDescription}"` : ""}
+${proposition ? `UNSEEN PROPOSITION: "${proposition}"` : ""}
+REFERENCE MODEL ANSWER: "${modelAnswer}"
+
+EVALUATION RUBRIC (Score each dimension 0, 1, or 2):
+1. clarity (0-2): Meaning is instantly clear to a reader without ambiguity.
+2. naturalness (0-2): Fluent Australian English sentence construction (no awkward phrasing, no bizarre collocations like 'spew less money' or 'block shade', no comma splices).
+3. precision (0-2): Uses concrete terms; avoids abstract empty claims like 'become healthier', 'build communities', 'make things better', 'good', 'things'.
+4. causalCompleteness (0-2): Fully explains the logical mechanism (not merely stating a benefit without explaining what causes it).
+5. compliance (0-2): Strict compliance with prompt requirements, constraints, and instructions.
+
+STRICT SCORING ANCHOR RULE:
+- Total score = sum of the 5 dimensions (0 to 10).
+- A sentence CANNOT score above 6/10 if it contains a significant awkward construction, incorrect causal relationship, superficial synonym rewrite, or vague wording that obscures its meaning.
+- A grammatically correct sentence must NOT be penalised merely for being simple.
+- Do NOT reward unnecessary complexity, sophisticated vocabulary or length.
+- "passed" is true ONLY IF score >= 7 AND no significant defect exists.
+
+DEFECT TAXONOMY (Identify ONE principal defect if unsuccessful):
+- VAGUE_SUBJECT: e.g. "This helps...", "This provides...", "This can make...", "It is good"
+- VAGUE_VERB: e.g. "helps", "provides", "makes things"
+- AWKWARD_COLLOCATION: e.g. "block shade", "spew less money", "cost substantially higher"
+- MISSING_MECHANISM: states benefit without the physical/logical cause
+- GRAMMATICAL_ERROR: agreement, tense, or syntax error
+- REPETITION: repeating same root idea or restating premise
+- UNNECESSARY_WORDS: wordy filler, padding, or exceeding word limits
+- SENTENCE_FRAGMENT: incomplete thought or clause
+- RUN_ON_SENTENCE: comma splice or run-on sentences without conjunction
+- MEANING_CHANGED: altered premise or superficial synonym swap retaining broken structure
+
+FEEDBACK RULES:
+- Identify ONE principal defect.
+- Explain the defect in ONE short, direct sentence understandable to a ten-year-old.
+- Highlight the exact 'problematicPhrase'.
+- If the opening was vague (e.g. starts with "This helps"), specify 'prohibitedOpening'.
+- Provide 'structuralDifference' (1 concise sentence contrasting with model answer).
+
+Return JSON strictly adhering to:
+{
+  "valid": true,
+  "score": number (0 to 10),
+  "passed": boolean (true if score >= 7 and no defect),
+  "clarity": number (0 to 2),
+  "naturalness": number (0 to 2),
+  "precision": number (0 to 2),
+  "causalCompleteness": number (0 to 2),
+  "compliance": number (0 to 2),
+  "defect": "VAGUE_SUBJECT" | "VAGUE_VERB" | "AWKWARD_COLLOCATION" | "MISSING_MECHANISM" | "GRAMMATICAL_ERROR" | "REPETITION" | "UNNECESSARY_WORDS" | "SENTENCE_FRAGMENT" | "RUN_ON_SENTENCE" | "MEANING_CHANGED" | null,
+  "problematicPhrase": "exact problematic phrase",
+  "feedback": "One short sentence identifying defect and giving fix",
+  "structuralDifference": "One short sentence explaining structural difference from model answer",
+  "prohibitedOpening": "opening phrase if vague or null",
+  "xpAwarded": number
+}`;
+
+        const userPrompt = `STUDENT RESPONSE (Attempt #${attemptNumber}):
+"${text}"
+${objectiveDefect ? `PRE-VALIDATION FLAG: ${objectiveDefect} - ${objectiveFeedback}` : ""}`;
+
+        const raw = await callOpenRouter(systemPrompt, userPrompt, selectedModel, 450);
+        const parsed = SentenceRetrainingSchema.parse(raw);
+
+        // Enforce objective defect override if present
+        if (objectiveDefect && (!parsed.defect || parsed.score > 6)) {
+          parsed.defect = objectiveDefect;
+          parsed.feedback = objectiveFeedback;
+          parsed.score = Math.min(parsed.score, 6);
+          parsed.passed = false;
+          if (objectivePhrase) parsed.problematicPhrase = objectivePhrase;
+          if (newProhibitedOpening) parsed.prohibitedOpening = newProhibitedOpening;
+        }
+
+        // Recalculate XP rigorously
+        parsed.xpAwarded = calcXp(parsed.passed, drillType === "independent", attemptNumber);
+
+        return NextResponse.json(parsed);
       }
 
       default:

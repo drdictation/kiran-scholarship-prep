@@ -296,3 +296,57 @@ export const SentenceSprintSchema = z.object({
     .optional(),
   feedback: z.string(),
 });
+
+export const SentenceGymEvaluationSchema = z.object({
+  valid: z.boolean().default(true),
+  rating: z.enum(["Strong", "Almost", "Needs work"]),
+  score: z.number().min(0).max(100),
+  feedback: z.string(),
+  improvedSentence: z.string().optional(),
+});
+
+export const SentenceGymGenSchema = z.object({
+  id: z.string(),
+  type: z.enum(["builder", "bridge", "fix_compress", "next_sentence"]),
+  domain: z.string(),
+  title: z.string().optional(),
+  notes: z.array(z.string()).optional(),
+  pointA: z.string().optional(),
+  conclusionC: z.string().optional(),
+  weakSentence: z.string().optional(),
+  sentence1: z.string().optional(),
+  promptInstruction: z.string(),
+  modelAnswer: z.string().optional(),
+});
+
+export const SentenceRetrainingSchema = z.object({
+  valid: z.boolean().default(true),
+  score: z.number().min(0).max(10),
+  passed: z.boolean(),
+  clarity: z.number().min(0).max(2),
+  naturalness: z.number().min(0).max(2),
+  precision: z.number().min(0).max(2),
+  causalCompleteness: z.number().min(0).max(2),
+  compliance: z.number().min(0).max(2),
+  defect: z
+    .enum([
+      "VAGUE_SUBJECT",
+      "VAGUE_VERB",
+      "AWKWARD_COLLOCATION",
+      "MISSING_MECHANISM",
+      "GRAMMATICAL_ERROR",
+      "REPETITION",
+      "UNNECESSARY_WORDS",
+      "SENTENCE_FRAGMENT",
+      "RUN_ON_SENTENCE",
+      "MEANING_CHANGED",
+    ])
+    .optional(),
+  problematicPhrase: z.string().optional(),
+  feedback: z.string(),
+  structuralDifference: z.string().optional(),
+  prohibitedOpening: z.string().optional(),
+  xpAwarded: z.number(),
+});
+
+
