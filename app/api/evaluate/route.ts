@@ -1473,8 +1473,56 @@ Return JSON strictly adhering to:
 "${text}"
 ${objectiveDefect ? `PRE-VALIDATION FLAG: ${objectiveDefect} - ${objectiveFeedback}` : ""}`;
 
-        const raw = await callOpenRouter(systemPrompt, userPrompt, selectedModel, 450);
-        const parsed = SentenceRetrainingSchema.parse(raw);
+        let parsed: any;
+        try {
+          const raw = await callOpenRouter(systemPrompt, userPrompt, selectedModel, 1000);
+          parsed = SentenceRetrainingSchema.parse(raw);
+        } catch (llmErr) {
+          console.error("OpenRouter evaluation error, falling back to deterministic heuristic:", llmErr);
+          const isIndep = drillType === "independent";
+          let clarity = 2;
+          let naturalness = 2;
+          let precision = 2;
+          let causalCompleteness = 2;
+          let compliance = 2;
+
+          if (words.length < 6) {
+            clarity = 1;
+            causalCompleteness = 0;
+            objectiveDefect = objectiveDefect || "SENTENCE_FRAGMENT";
+            objectiveFeedback = objectiveFeedback || "Your sentence is too short to explain the mechanism.";
+          }
+
+          if (objectiveDefect) {
+            compliance = 1;
+            naturalness = 1;
+            clarity = 1;
+          }
+
+          let score = clarity + naturalness + precision + causalCompleteness + compliance;
+          if (objectiveDefect && score > 6) {
+            score = 6;
+          }
+          const passed = score >= 7 && !objectiveDefect;
+          const xpAwarded = calcXp(passed, isIndep, attemptNumber);
+
+          parsed = {
+            valid: true,
+            score,
+            passed,
+            clarity,
+            naturalness,
+            precision,
+            causalCompleteness,
+            compliance,
+            defect: objectiveDefect || undefined,
+            problematicPhrase: objectivePhrase || undefined,
+            feedback: objectiveFeedback || (passed ? "Strong, clear sentence with complete causal explanation." : "Needs work on sentence structure and precision."),
+            structuralDifference: structuralExplanation || "The model sentence names the true subject and explains the physical mechanism directly.",
+            prohibitedOpening: newProhibitedOpening || undefined,
+            xpAwarded,
+          };
+        }
 
         // Enforce objective defect override if present
         if (objectiveDefect && (!parsed.defect || parsed.score > 6)) {

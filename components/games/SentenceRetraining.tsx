@@ -117,6 +117,18 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
       });
 
       const data: SentenceRetrainingEvaluation = await res.json();
+
+      // Ensure score and dimensions are always defined numbers
+      if (typeof data.score !== "number" || isNaN(data.score)) {
+        data.score = 5;
+        data.clarity = data.clarity ?? 1;
+        data.naturalness = data.naturalness ?? 1;
+        data.precision = data.precision ?? 1;
+        data.causalCompleteness = data.causalCompleteness ?? 1;
+        data.compliance = data.compliance ?? 1;
+        data.feedback = data.feedback || "Sentence evaluated. Strive for clear subject-first causality.";
+        data.xpAwarded = data.xpAwarded || 5;
+      }
       setEvaluation(data);
 
       const isFirstAttempt = attemptNumber === 1;

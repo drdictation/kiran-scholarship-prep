@@ -46,7 +46,23 @@ export async function callOpenRouter(
     throw new Error("No content received from OpenRouter");
   }
 
-  return JSON.parse(content);
+  // Strip markdown code fences or conversational wrappers
+  let cleaned = content.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+  }
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    cleaned = cleaned.substring(start, end + 1);
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (err: any) {
+    console.error("JSON parse failure on model response:", content);
+    throw new Error(`MALFORMED_JSON: ${err.message}`);
+  }
 }
 
 // Zod schemas for strict output validation
