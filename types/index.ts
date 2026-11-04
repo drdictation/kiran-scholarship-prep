@@ -597,6 +597,11 @@ export interface SentenceRetrainingPrompt {
   timeLimitSeconds: number; // 60 for rebuild/constrained, 75 for independent
 }
 
+export type RetrainingAttemptProvenance =
+  | "verified_ai"
+  | "suspect_fallback"
+  | "unverified_historical";
+
 export interface SentenceRetrainingEvaluation {
   valid: boolean;
   score: number; // 0 - 10
@@ -606,12 +611,18 @@ export interface SentenceRetrainingEvaluation {
   precision: number; // 0 - 2
   causalCompleteness: number; // 0 - 2
   compliance: number; // 0 - 2
-  defect?: SentenceRetrainingErrorType;
-  problematicPhrase?: string;
-  feedback: string; // 1 short sentence child-friendly
-  structuralDifference?: string; // shown after retry limit or pass
-  prohibitedOpening?: string; // opening that cannot be reused if opening was the defect
+  defect?: SentenceRetrainingErrorType | null;
+  problematicPhrase?: string | null;
+  feedback: string; // concise actionable feedback + improved version when needed
+  structuralDifference?: string | null; // shown after retry limit or pass
+  prohibitedOpening?: string | null; // opening that cannot be reused if opening was the defect
   xpAwarded: number;
+  evaluationSource?: "ai";
+  rubricVersion?: number;
+  modelUsed?: string;
+  error?: string;
+  errorCode?: string;
+  message?: string;
 }
 
 export interface RetrainingMastery {
@@ -619,6 +630,16 @@ export interface RetrainingMastery {
   firstAttemptSuccessTopics: string[];
   hasIndependentSuccess: boolean;
   mastered: boolean;
+  verifiedByAi?: boolean;
+}
+
+export interface VerifiedRetrainingStats {
+  firstAttemptCount: number;
+  firstAttemptPassCount: number;
+  retrySuccessCount: number;
+  retryTotalCount: number;
+  independentCount: number;
+  independentPassCount: number;
 }
 
 export interface SentenceRetrainingState {
@@ -631,5 +652,8 @@ export interface SentenceRetrainingState {
   independentCount: number;
   independentPassCount: number;
   masteredSkills: Record<string, RetrainingMastery>;
+  rubricVersion?: number;
+  hasUnverifiedHistoricalData?: boolean;
+  verifiedAiStats?: VerifiedRetrainingStats;
 }
 

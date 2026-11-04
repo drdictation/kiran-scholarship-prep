@@ -10,6 +10,7 @@ import {
   getSprintState,
   getRetrainingState,
   getTopPersistentErrors,
+  classifyRetrainingAttemptProvenance,
 } from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import { LogicDashboard } from "@/components/parent/LogicDashboard";
@@ -407,6 +408,27 @@ export function ParentDashboard() {
             Adaptive 3-Tier Drill Loop
           </span>
         </div>
+
+        {retrainingState.hasUnverifiedHistoricalData && (
+          <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs text-amber-950 space-y-1">
+            <span className="font-extrabold uppercase tracking-wider text-[10px] text-amber-900 block">
+              Unverified Historical Data Notice
+            </span>
+            <p className="leading-relaxed">
+              Cumulative statistics include earlier attempts recorded before Rubric v2 that may have been scored by a legacy fallback heuristic. Verified AI-graded counts since the fix:{" "}
+              <strong>
+                {retrainingState.verifiedAiStats?.firstAttemptPassCount || 0}/
+                {retrainingState.verifiedAiStats?.firstAttemptCount || 0} first-attempt passes
+              </strong>{" "}
+              and{" "}
+              <strong>
+                {retrainingState.verifiedAiStats?.independentPassCount || 0}/
+                {retrainingState.verifiedAiStats?.independentCount || 0} independent passes
+              </strong>
+              .
+            </p>
+          </div>
+        )}
 
         {/* 4 Core Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -822,6 +844,27 @@ export function ParentDashboard() {
                           Catastrophized Leap
                         </span>
                       )}
+
+                      {att.exerciseType === "sentence_retraining" && (() => {
+                        const prov = classifyRetrainingAttemptProvenance(att);
+                        return (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                              prov === "verified_ai"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : prov === "suspect_fallback"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {prov === "verified_ai"
+                              ? "Verified AI (v2)"
+                              : prov === "suspect_fallback"
+                              ? "Legacy Fallback (Unverified)"
+                              : "Historical (Unverified)"}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-2">

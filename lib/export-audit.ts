@@ -1,4 +1,5 @@
-import { StudentProfile, AttemptLog } from "@/types";
+import type { StudentProfile, AttemptLog } from "@/types";
+import { classifyRetrainingAttemptProvenance } from "@/lib/storage";
 
 /**
  * Builds a comprehensive Markdown dossier specifically formatted for an external AI (ChatGPT/Claude/Gemini)
@@ -79,6 +80,9 @@ ${
     if (att.domain) md += `- **Domain:** ${att.domain}\n`;
     md += `- **Time Used:** **${att.durationSeconds || 0} seconds**\n`;
     md += `- **Score Awarded:** **${att.score}%** (+${att.xpEarned} XP)\n`;
+    if (att.exerciseType === "sentence_retraining") {
+      md += `- **Grading Provenance:** \`${classifyRetrainingAttemptProvenance(att)}\`\n`;
+    }
     md += `\n**Kiran's Submitted Answer:**\n`;
 
     if (typeof att.input === "string") {

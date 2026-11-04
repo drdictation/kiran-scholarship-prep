@@ -42,6 +42,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
   const [studentText, setStudentText] = useState("");
   const [prohibitedOpening, setProhibitedOpening] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<SentenceRetrainingEvaluation | null>(null);
+  const [evalError, setEvalError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [sessionXp, setSessionXp] = useState(0);
@@ -77,6 +78,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
     setStudentText("");
     setProhibitedOpening(null);
     setEvaluation(null);
+    setEvalError(null);
     setSessionXp(0);
     setFirstAttemptHits(0);
     setRetryHits(0);
@@ -91,6 +93,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
   const submitSentence = async () => {
     if (!currentPrompt || !studentText.trim() || busy) return;
     setBusy(true);
+    setEvalError(null);
 
     try {
       const res = await fetch("/api/evaluate", {
@@ -100,6 +103,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
           exerciseType: "sentence_retraining",
           payload: {
             drillType: currentPrompt.drillType,
+            targetSkillOrError: currentPrompt.targetSkillOrError,
             originalSentence: currentPrompt.originalSentence,
             context: currentPrompt.context,
             notes: currentPrompt.notes,
@@ -116,19 +120,23 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
         }),
       });
 
-      const data: SentenceRetrainingEvaluation = await res.json();
+      const data: SentenceRetrainingEvaluation | null = await res.json().catch(() => null);
 
-      // Ensure score and dimensions are always defined numbers
-      if (typeof data.score !== "number" || isNaN(data.score)) {
-        data.score = 5;
-        data.clarity = data.clarity ?? 1;
-        data.naturalness = data.naturalness ?? 1;
-        data.precision = data.precision ?? 1;
-        data.causalCompleteness = data.causalCompleteness ?? 1;
-        data.compliance = data.compliance ?? 1;
-        data.feedback = data.feedback || "Sentence evaluated. Strive for clear subject-first causality.";
-        data.xpAwarded = data.xpAwarded || 5;
+      // Never fabricate grades if evaluation failed or returned invalid data
+      if (
+        !res.ok ||
+        !data ||
+        data.valid === false ||
+        typeof data.score !== "number" ||
+        isNaN(data.score)
+      ) {
+        setEvalError(
+          data?.message ||
+            "We couldn't evaluate your sentence right now. Your sentence has been saved — please click Submit to try again."
+        );
+        return;
       }
+
       setEvaluation(data);
 
       const isFirstAttempt = attemptNumber === 1;
@@ -154,11 +162,11 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
         isIndep,
         isFirstAttempt && data.passed,
         !isFirstAttempt && data.passed,
-        !data.passed ? data.defect : undefined
+        !data.passed ? (data.defect ?? undefined) : undefined
       );
       setRetrainingState(updatedState);
 
-      // Log attempt in audit log
+      // Log attempt in audit log with verified provenance
       logAttempt({
         exerciseType: "sentence_retraining",
         topic: currentPrompt.proposition || currentPrompt.context || currentPrompt.id,
@@ -171,10 +179,14 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
         input: studentText.trim(),
         details: {
           drillType: currentPrompt.drillType,
+          targetSkillOrError: currentPrompt.targetSkillOrError,
           attemptNumber,
           passed: data.passed,
           defect: data.defect,
           problematicPhrase: data.problematicPhrase,
+          evaluationSource: data.evaluationSource || "ai",
+          rubricVersion: data.rubricVersion || 2,
+          modelUsed: data.modelUsed,
           scores: {
             clarity: data.clarity,
             naturalness: data.naturalness,
@@ -192,6 +204,9 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
       setPhase("marked");
     } catch (err) {
       console.error("Sentence evaluation failed:", err);
+      setEvalError(
+        "A connection error occurred while evaluating your sentence. Your sentence has been kept — please try submitting again."
+      );
     } finally {
       setBusy(false);
     }
@@ -201,6 +216,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
     setAttemptNumber((prev) => prev + 1);
     setStudentText("");
     setEvaluation(null);
+    setEvalError(null);
     startTimeRef.current = Date.now();
     setElapsed(0);
     setPhase("drill");
@@ -216,6 +232,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
     setStudentText("");
     setProhibitedOpening(null);
     setEvaluation(null);
+    setEvalError(null);
     startTimeRef.current = Date.now();
     setElapsed(0);
     setPhase("drill");
@@ -462,6 +479,24 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
           <span>
             <strong>Prohibited Opening:</strong> Do not start with &ldquo;{prohibitedOpening}&rdquo;. Begin with the actual subject.
           </span>
+        </div>
+      )}
+
+      {/* Evaluation Error Banner (Preserves student sentence, allows immediate retry) */}
+      {evalError && phase === "drill" && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{evalError}</span>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !studentText.trim()}
+            onClick={submitSentence}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs shrink-0"
+          >
+            Retry Evaluation
+          </button>
         </div>
       )}
 
