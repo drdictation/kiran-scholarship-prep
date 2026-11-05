@@ -602,10 +602,33 @@ export type RetrainingAttemptProvenance =
   | "suspect_fallback"
   | "unverified_historical";
 
+export type RetrainingEditingMode =
+  | "think_first_write_once"
+  | "standard_accessible";
+
+export type RetrainingAttemptStage = "first_draft" | "correction";
+
+export type RetrainingQualityBand =
+  | "fluent_first_draft"
+  | "high_quality"
+  | "developing"
+  | "not_mastered";
+
+export interface RetrainingConfig {
+  prepDurationSeconds: number; // default 12 (10-15s)
+  writingTargetSeconds: number; // default 45s
+  developingThreshold: number; // default 80
+  highQualityThreshold: number; // default 90
+}
+
 export interface SentenceRetrainingEvaluation {
   valid: boolean;
   score: number; // 0 - 10
-  passed: boolean; // score >= 7 and no disqualifying defect
+  qualityScore: number; // 0 - 100
+  passed: boolean; // firstDraftQualityPass (>= 80% and no disqualifying defect)
+  firstDraftQualityPass: boolean;
+  highQualityFirstDraft: boolean; // >= 90% and full grammar/naturalness/causal scores
+  grammaticalCorrectness: number; // 0 - 2
   clarity: number; // 0 - 2
   naturalness: number; // 0 - 2
   precision: number; // 0 - 2
@@ -613,9 +636,11 @@ export interface SentenceRetrainingEvaluation {
   compliance: number; // 0 - 2
   defect?: SentenceRetrainingErrorType | null;
   problematicPhrase?: string | null;
-  feedback: string; // concise actionable feedback + improved version when needed
-  structuralDifference?: string | null; // shown after retry limit or pass
+  feedback: string; // concise actionable Grade 5 feedback (no full corrected sentence on first_draft failure)
+  structuralDifference?: string | null; // shown after Stage D or pass
   prohibitedOpening?: string | null; // opening that cannot be reused if opening was the defect
+  defectCorrected?: boolean; // Stage D: whether the targeted defect was repaired
+  attemptStage?: RetrainingAttemptStage;
   xpAwarded: number;
   evaluationSource?: "ai";
   rubricVersion?: number;
@@ -623,6 +648,48 @@ export interface SentenceRetrainingEvaluation {
   error?: string;
   errorCode?: string;
   message?: string;
+}
+
+export interface RetrainingExposureRecord {
+  questionId: string;
+  attempts: number;
+  lastSeenTimestamp: number;
+  firstDraftPassed: boolean;
+  firstDraftQualityScore?: number;
+  correctedQualityScore?: number;
+  submittedSentences: string[];
+}
+
+export interface RetrainingAnalyticsSummary {
+  firstDraftQualityTrend: {
+    timestamp: number;
+    questionId: string;
+    qualityScore: number;
+    correctedScore?: number;
+    qualityBand: RetrainingQualityBand;
+  }[];
+  unseenFirstAttemptPassRate: number | null;
+  unseenFirstAttemptPassed: number;
+  unseenFirstAttemptTotal: number;
+  medianPrepTimeSeconds: number | null;
+  medianWritingTimeSeconds: number | null;
+  correctionSuccessRate: number | null;
+  correctionSuccessCount: number;
+  correctionTotalCount: number;
+  topDefects: {
+    defect: SentenceRetrainingErrorType;
+    flagged: number;
+    corrected: number;
+    net: number;
+  }[];
+  delayedTransferPassRate: number | null;
+  delayedTransferPassed: number;
+  delayedTransferTotal: number;
+  fluentFirstDraftCount: number;
+  highQualityFirstDraftCount: number;
+  developingFirstDraftCount: number;
+  notMasteredFirstDraftCount: number;
+  accessibleModeAttemptsCount: number;
 }
 
 export interface RetrainingMastery {
@@ -655,5 +722,7 @@ export interface SentenceRetrainingState {
   rubricVersion?: number;
   hasUnverifiedHistoricalData?: boolean;
   verifiedAiStats?: VerifiedRetrainingStats;
+  exposureHistory?: Record<string, RetrainingExposureRecord>;
+  adaptivePrepSeconds?: number;
 }
 

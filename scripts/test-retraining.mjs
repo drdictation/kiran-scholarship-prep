@@ -54,7 +54,24 @@ const {
   logAttempt,
   getAttempts,
   getProfile,
+  buildRetrainingSession,
+  getGrammaticalPatternKey,
+  checkRetrainingExposureBeforeSubmit,
+  recordRetrainingExposure,
+  getRetrainingAnalytics,
 } = await import("../lib/storage.ts");
+const {
+  createFirstDraftInputState,
+  handleFirstDraftKeyDown,
+  handleCompositionStart,
+  handleCompositionUpdate,
+  handleCompositionEnd,
+  applyFirstDraftChange,
+  getEnforcedCursorPosition,
+  lockFirstDraftState,
+  computeRetrainingTimingMetrics,
+  classifyFirstDraftQualityBand,
+} = await import("../lib/retraining-input-controller.ts");
 const { POST } = await import("../app/api/evaluate/route.ts");
 const { NextRequest } = await import("next/server.js");
 
@@ -509,6 +526,401 @@ async function runDeterministicTests() {
     passedCount++;
   }
 
+  // 14. Stage B input immutability: blocks backspace, delete, cursor moves, selection replacement, paste, and undo
+  {
+    let st = createFirstDraftInputState("think_first_write_once");
+    st = applyFirstDraftChange(st, "Separated", { inputType: "insertText", nowMs: 1000 });
+    st = applyFirstDraftChange(st, "Separated bicycle lanes", { inputType: "insertText", nowMs: 1200 });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes");
+    assert.strictEqual(st.firstKeystrokeAt, 1000);
+
+    // Block Backspace keydown & deleteContentBackward change
+    const bsKey = handleFirstDraftKeyDown(st, { key: "Backspace" });
+    assert.strictEqual(bsKey.preventDefault, true, "Backspace keydown must be prevented");
+    st = applyFirstDraftChange(bsKey.state, "Separated bicycle lane", {
+      inputType: "deleteContentBackward",
+      nowMs: 1300,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Backspace deletion must not alter committedText");
+
+    // Block cursor repositioning
+    const leftKey = handleFirstDraftKeyDown(st, { key: "ArrowLeft" });
+    assert.strictEqual(leftKey.preventDefault, true, "ArrowLeft cursor move must be prevented");
+    const pos = getEnforcedCursorPosition(st, 3, 9);
+    assert.strictEqual(pos.start, st.committedText.length);
+    assert.strictEqual(pos.end, st.committedText.length);
+    assert.strictEqual(pos.wasRepositioned, true);
+
+    // Block mid-sentence selection replacement
+    st = applyFirstDraftChange(st, "Separated car lanes", {
+      inputType: "insertReplacementText",
+      nowMs: 1400,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Selection replacement must be rejected");
+
+    // Block Paste and Undo
+    const pasteKey = handleFirstDraftKeyDown(st, { key: "v", metaKey: true });
+    assert.strictEqual(pasteKey.preventDefault, true, "Cmd+V must be prevented");
+    st = applyFirstDraftChange(pasteKey.state, "Separated bicycle lanes protect riders from traffic", {
+      inputType: "insertFromPaste",
+      nowMs: 1500,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Paste inputType must be rejected");
+
+    const undoKey = handleFirstDraftKeyDown(st, { key: "z", metaKey: true });
+    assert.strictEqual(undoKey.preventDefault, true, "Cmd+Z Undo must be prevented");
+    st = applyFirstDraftChange(undoKey.state, "Separated", {
+      inputType: "historyUndo",
+      nowMs: 1600,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes", "historyUndo must be rejected");
+
+    // Normal appending of punctuation, spaces, and words remains allowed
+    st = applyFirstDraftChange(st, "Separated bicycle lanes, protecting riders.", {
+      inputType: "insertText",
+      nowMs: 1700,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes, protecting riders.");
+
+    // Lock answer on submission
+    st = lockFirstDraftState(st, 2000);
+    st = applyFirstDraftChange(st, "Separated bicycle lanes, protecting riders. More", {
+      inputType: "insertText",
+      nowMs: 2100,
+    });
+    assert.strictEqual(st.committedText, "Separated bicycle lanes, protecting riders.", "Locked state must reject further edits");
+    console.log("✓ [D14] Stage B input immutability blocks backspace, cursor move, selection replace, paste, and undo");
+    passedCount++;
+  }
+
+  // 15. Keyboard / IME composition support & Accessible Editing mode
+  {
+    let st = createFirstDraftInputState("think_first_write_once");
+    st = applyFirstDraftChange(st, "Caf", { inputType: "insertText", nowMs: 1000 });
+    st = handleCompositionStart(st, 1100);
+    assert.strictEqual(st.isComposing, true);
+
+    // Keydowns during active IME composition must not be blocked
+    const compKey = handleFirstDraftKeyDown(st, { key: "Backspace", isComposing: true });
+    assert.strictEqual(compKey.preventDefault, false, "Active IME composition key events must not be blocked");
+
+    st = handleCompositionUpdate(st, "Cafe", 1150);
+    assert.strictEqual(st.displayText, "Cafe");
+    st = handleCompositionEnd(st, "Café", 1200);
+    assert.strictEqual(st.isComposing, false);
+    assert.strictEqual(st.committedText, "Café");
+
+    // Accessible mode allows normal editing
+    let acc = createFirstDraftInputState("standard_accessible");
+    acc = applyFirstDraftChange(acc, "First draft sentence", { inputType: "insertText", nowMs: 1000 });
+    acc = applyFirstDraftChange(acc, "First sentence", { inputType: "deleteContentBackward", nowMs: 1200 });
+    assert.strictEqual(acc.committedText, "First sentence", "Accessible mode must allow normal editing");
+    console.log("✓ [D15] IME keyboard composition events and Accessible Editing mode work as expected");
+    passedCount++;
+  }
+
+  // 16. Timing separation & quality-first scoring hierarchy
+  {
+    const timingWithin = computeRetrainingTimingMetrics({
+      promptDisplayedAtMs: 0,
+      inputUnlockedAtMs: 12000, // 12s prep
+      firstKeystrokeAtMs: 13000,
+      submittedAtMs: 43000, // 30s writing
+      writingTargetSeconds: 45,
+      studentText: "Separated bicycle lanes protect riders from traffic, making parents more willing to let children cycle to school.",
+    });
+    assert.strictEqual(timingWithin.prepDurationSeconds, 12);
+    assert.strictEqual(timingWithin.writingDurationSeconds, 30);
+    assert.strictEqual(timingWithin.overrunSeconds, 0);
+    assert.strictEqual(timingWithin.isOverrun, false);
+    assert(timingWithin.typingWpm > 0);
+
+    const timingOverrun = computeRetrainingTimingMetrics({
+      promptDisplayedAtMs: 0,
+      inputUnlockedAtMs: 12000,
+      firstKeystrokeAtMs: 12000,
+      submittedAtMs: 70000, // 58s writing (13s overrun)
+      writingTargetSeconds: 45,
+      studentText: "Separated bicycle lanes protect riders from traffic, making parents more willing to let children cycle to school.",
+    });
+    assert.strictEqual(timingOverrun.writingDurationSeconds, 58);
+    assert.strictEqual(timingOverrun.overrunSeconds, 13);
+    assert.strictEqual(timingOverrun.isOverrun, true);
+
+    assert.strictEqual(
+      classifyFirstDraftQualityBand(
+        { qualityScore: 95, firstDraftQualityPass: true, highQualityFirstDraft: true },
+        30,
+        "think_first_write_once"
+      ),
+      "fluent_first_draft"
+    );
+    assert.strictEqual(
+      classifyFirstDraftQualityBand(
+        { qualityScore: 95, firstDraftQualityPass: true, highQualityFirstDraft: true },
+        58,
+        "think_first_write_once"
+      ),
+      "high_quality"
+    );
+    assert.strictEqual(
+      classifyFirstDraftQualityBand(
+        { qualityScore: 80, firstDraftQualityPass: true, highQualityFirstDraft: false },
+        30,
+        "think_first_write_once"
+      ),
+      "developing"
+    );
+    assert.strictEqual(
+      classifyFirstDraftQualityBand(
+        { qualityScore: 70, firstDraftQualityPass: false, highQualityFirstDraft: false },
+        20,
+        "think_first_write_once"
+      ),
+      "not_mastered"
+    );
+    console.log("✓ [D16] Timing metrics and quality-first scoring hierarchy verified");
+    passedCount++;
+  }
+
+  // 17. Calibration safeguards: specific audit defects, Australian English ("earnt"), and Stage C/D feedback rules
+  {
+    // Australian English "earnt" must not be penalised
+    const ausParsed = SentenceRetrainingSchema.parse({
+      grammaticalCorrectness: 1,
+      clarity: 2,
+      naturalness: 1,
+      precision: 2,
+      causalCompleteness: 2,
+      compliance: 2,
+      defect: "GRAMMATICAL_ERROR",
+      problematicPhrase: "earnt",
+      feedback: "Use 'earned' instead of 'earnt'.",
+    });
+    const ausVerdict = computeRetrainingScoreAndVerdict(ausParsed, {
+      drillType: "independent",
+      attemptStage: "first_draft",
+      studentText: "Children who complete chores learn that pocket money must be earnt through effort.",
+    });
+    assert.strictEqual(ausVerdict.score, 10, "Australian English 'earnt' must not be penalised");
+    assert.strictEqual(ausVerdict.firstDraftQualityPass, true);
+    assert.strictEqual(ausVerdict.defect, undefined);
+
+    // Specific audit defects ("cost substantially higher", "get disposed", "owners get contact", "engineering curiosity grows", "helps children's brains")
+    const auditCases = [
+      "Electric buses cost substantially higher than diesel buses, reducing council budgets.",
+      "Plastic bags should be banned because they get disposed in landfills.",
+      "Microchipping pets ensures that owners get contact quickly when pets are lost.",
+      "Building solar model cars teaches students wiring skills so engineering curiosity grows.",
+      "Learning a musical instrument is beneficial because it helps children's brains.",
+    ];
+    for (const badSentence of auditCases) {
+      const lenientLlm = SentenceRetrainingSchema.parse({
+        grammaticalCorrectness: 2,
+        clarity: 2,
+        naturalness: 2,
+        precision: 2,
+        causalCompleteness: 2,
+        compliance: 2,
+        defect: null,
+        feedback: "Good sentence. Better: 'Improved model sentence.'",
+      });
+      const v = computeRetrainingScoreAndVerdict(lenientLlm, {
+        drillType: "independent",
+        attemptStage: "first_draft",
+        studentText: badSentence,
+      });
+      assert.strictEqual(
+        v.firstDraftQualityPass,
+        false,
+        `Audit defect sentence must not pass first-draft quality check: "${badSentence}"`
+      );
+      assert(v.qualityScore < 80, `Expected <80% for "${badSentence}", got ${v.qualityScore}%`);
+      assert(
+        !v.feedback.includes("Better:"),
+        "Stage C failed first draft must never leak 'Better:' model sentence"
+      );
+    }
+
+    // Stage D correction evaluation
+    const stageDParsed = SentenceRetrainingSchema.parse({
+      grammaticalCorrectness: 2,
+      clarity: 2,
+      naturalness: 2,
+      precision: 2,
+      causalCompleteness: 2,
+      compliance: 2,
+      defect: null,
+      defectCorrected: true,
+      feedback: "You fixed the passive phrase by writing 'are disposed of'.",
+    });
+    const stageDVerdict = computeRetrainingScoreAndVerdict(stageDParsed, {
+      drillType: "independent",
+      attemptStage: "correction",
+      firstDraftText: "Plastic bags should be banned because they get disposed in landfills.",
+      targetDefectToFix: "AWKWARD_COLLOCATION",
+      targetPhraseToFix: "get disposed",
+      studentText: "Plastic bags should be banned because they are disposed of in landfills, polluting soil.",
+    });
+    assert.strictEqual(stageDVerdict.defectCorrected, true);
+    assert.strictEqual(stageDVerdict.qualityScore, 100);
+    console.log("✓ [D17] Calibration anchors, Australian English ('earnt'), Stage C model-answer hiding, and Stage D repair check verified");
+    passedCount++;
+  }
+
+  // 18. First-draft vs Stage D correction score separation, exposure history & parent analytics
+  {
+    installMockLocalStorage();
+
+    // Unseen question check before first submission
+    const expBefore = checkRetrainingExposureBeforeSubmit(
+      "retrain-ind-1",
+      "Electric buses cost substantially higher than diesel buses."
+    );
+    assert.strictEqual(expBefore.isUnseenQuestion, true);
+    assert.strictEqual(expBefore.reusedPriorSentence, false);
+
+    // Record failed Stage C first draft (score 60%)
+    recordRetrainingExposure({
+      questionId: "retrain-ind-1",
+      studentText: "Electric buses cost substantially higher than diesel buses.",
+      attemptStage: "first_draft",
+      qualityScore: 60,
+      firstDraftPassed: false,
+      nowMs: 1000,
+    });
+    updateRetrainingMastery("AWKWARD_COLLOCATION", "transport", true, false, false, "AWKWARD_COLLOCATION", {
+      editingMode: "think_first_write_once",
+      isUnseenQuestion: true,
+      reusedPriorSentence: false,
+      attemptStage: "first_draft",
+    });
+    const firstDraftLog = logAttempt({
+      exerciseType: "sentence_retraining",
+      domain: "transport",
+      questionId: "retrain-ind-1",
+      score: 60,
+      xpEarned: 2,
+      durationSeconds: 28,
+      feedback: "Costs are high, or buses cost more.",
+      input: "Electric buses cost substantially higher than diesel buses.",
+      details: {
+        drillType: "independent",
+        targetSkillOrError: "AWKWARD_COLLOCATION",
+        attemptStage: "first_draft",
+        editingMode: "think_first_write_once",
+        passed: false,
+        firstDraftQualityPass: false,
+        qualityScore: 60,
+        qualityBand: "not_mastered",
+        prepDurationSeconds: 12,
+        writingDurationSeconds: 28,
+        isUnseenQuestion: true,
+        reusedPriorSentence: false,
+        evaluationSource: "ai",
+        rubricVersion: 2,
+      },
+    });
+
+    const masteryAfterFirstDraft = getProfile().skillsMastery.causal_reasoning;
+    assert.strictEqual(masteryAfterFirstDraft, 60);
+
+    // Record successful Stage D correction (score 100%)
+    recordRetrainingExposure({
+      questionId: "retrain-ind-1",
+      studentText: "Although electric buses cost more upfront, they reduce city air pollution.",
+      attemptStage: "correction",
+      qualityScore: 100,
+      firstDraftPassed: false,
+      nowMs: 2000,
+    });
+    updateRetrainingMastery("AWKWARD_COLLOCATION", "transport", true, false, true, "AWKWARD_COLLOCATION", {
+      editingMode: "think_first_write_once",
+      attemptStage: "correction",
+    });
+    logAttempt({
+      exerciseType: "sentence_retraining",
+      domain: "transport",
+      questionId: "retrain-ind-1",
+      score: 100,
+      xpEarned: 10,
+      durationSeconds: 20,
+      feedback: "Target defect repaired.",
+      input: "Although electric buses cost more upfront, they reduce city air pollution.",
+      details: {
+        drillType: "independent",
+        targetSkillOrError: "AWKWARD_COLLOCATION",
+        attemptStage: "correction",
+        firstDraftAttemptId: firstDraftLog.id,
+        editingMode: "think_first_write_once",
+        passed: true,
+        defectCorrected: true,
+        qualityScore: 100,
+        evaluationSource: "ai",
+        rubricVersion: 2,
+      },
+    });
+
+    // Stage D correction must NEVER overwrite first-draft score or inflate first-attempt mastery!
+    const stateAfterCorrection = getRetrainingState();
+    assert.strictEqual(
+      stateAfterCorrection.exposureHistory["retrain-ind-1"].firstDraftQualityScore,
+      60,
+      "First-draft score must not be overwritten by Stage D correction"
+    );
+    assert.strictEqual(
+      stateAfterCorrection.exposureHistory["retrain-ind-1"].correctedQualityScore,
+      100,
+      "Corrected score must be stored separately"
+    );
+    assert.strictEqual(
+      stateAfterCorrection.verifiedAiStats.firstAttemptPassCount,
+      0,
+      "Stage D correction must never count as a first-attempt pass"
+    );
+    assert.strictEqual(
+      stateAfterCorrection.verifiedAiStats.retrySuccessCount,
+      1,
+      "Stage D correction must increment retry/correction success count"
+    );
+    assert.strictEqual(
+      getProfile().skillsMastery.causal_reasoning,
+      60,
+      "Stage D correction must not overwrite rolling first-draft skill mastery"
+    );
+
+    // Reusing the corrected sentence later must be detected and blocked from unseen transfer mastery
+    const reuseCheck = checkRetrainingExposureBeforeSubmit(
+      "retrain-ind-2",
+      "Although electric buses cost more upfront, they reduce city air pollution."
+    );
+    assert.strictEqual(reuseCheck.reusedPriorSentence, true, "Must detect reuse of a previously corrected sentence");
+
+    // Verify Parent Dashboard analytics separation
+    const analytics = getRetrainingAnalytics();
+    assert.strictEqual(analytics.unseenFirstAttemptTotal, 1);
+    assert.strictEqual(analytics.unseenFirstAttemptPassed, 0);
+    assert.strictEqual(analytics.correctionTotalCount, 1);
+    assert.strictEqual(analytics.correctionSuccessCount, 1);
+    assert.strictEqual(analytics.medianPrepTimeSeconds, 12);
+    assert.strictEqual(analytics.medianWritingTimeSeconds, 28);
+    assert.strictEqual(analytics.firstDraftQualityTrend[0].qualityScore, 60);
+    assert.strictEqual(analytics.firstDraftQualityTrend[0].correctedScore, 100);
+
+    // Session builder avoids consecutive identical grammatical patterns when alternatives exist
+    const session = buildRetrainingSession(SEED_SENTENCE_RETRAINING);
+    assert.strictEqual(session.length, 7);
+    let consecutiveSamePattern = 0;
+    for (let i = 1; i < session.length; i++) {
+      if (getGrammaticalPatternKey(session[i]) === getGrammaticalPatternKey(session[i - 1])) {
+        consecutiveSamePattern++;
+      }
+    }
+    assert.strictEqual(consecutiveSamePattern, 0, "Session builder must avoid consecutive identical grammatical patterns");
+    console.log("✓ [D18] First-draft vs correction separation, memorisation guard, and parent analytics verified");
+    passedCount++;
+  }
+
   console.log(`\n=== PART 1 COMPLETE: ${passedCount}/${passedCount} Deterministic Tests Passed ===\n`);
 }
 
@@ -768,6 +1180,39 @@ async function runLiveCalibrationTests() {
         );
         assert(res.body.score >= 8);
         assert(typeof res.body.feedback === "string" && res.body.feedback.length > 10);
+      },
+    },
+    {
+      name: "15. Stage C collocation defect ('cost substantially higher') — fails first draft without leaking model sentence",
+      payload: {
+        drillType: "rebuild",
+        targetSkillOrError: "AWKWARD_COLLOCATION",
+        originalSentence: "Electric buses make city air cleaner, they cost more to buy at the start.",
+        context: "Transitioning city bus fleets from diesel to electric.",
+        modelAnswer: "Although electric buses cost more upfront, they reduce city air pollution.",
+        attemptStage: "first_draft",
+        studentText: "Although electric buses cost substantially higher upfront, they reduce city air pollution.",
+      },
+      verify: (res) => {
+        assert.strictEqual(res.status, 200);
+        assert.strictEqual(res.body.firstDraftQualityPass, false);
+        assert(res.body.qualityScore < 80, `Expected <80%, got ${res.body.qualityScore}%`);
+        assert(!res.body.feedback.includes("Better:"), "Stage C must not reveal model rewrite");
+      },
+    },
+    {
+      name: "16. Australian English ('earnt') — accepted as high-quality first draft",
+      payload: {
+        drillType: "independent",
+        proposition: "Children should be paid an allowance by parents only when they complete household chores.",
+        modelAnswer: "Children should receive an allowance only after completing household chores because earning money teaches them that income requires effort.",
+        attemptStage: "first_draft",
+        studentText: "Children should receive pocket money only after completing household chores because they learn that income must be earnt through effort.",
+      },
+      verify: (res) => {
+        assert.strictEqual(res.status, 200);
+        assert.strictEqual(res.body.firstDraftQualityPass, true);
+        assert(res.body.qualityScore >= 90, `Expected >=90% for Australian English sentence, got ${res.body.qualityScore}%`);
       },
     },
   ];

@@ -11,6 +11,7 @@ import {
   getRetrainingState,
   getTopPersistentErrors,
   classifyRetrainingAttemptProvenance,
+  getRetrainingAnalytics,
 } from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import { LogicDashboard } from "@/components/parent/LogicDashboard";
@@ -45,6 +46,7 @@ export function ParentDashboard() {
   const [showWebhookGuide, setShowWebhookGuide] = useState(false);
   const [retrainingState, setRetrainingState] = useState(getRetrainingState());
   const [persistentErrors, setPersistentErrors] = useState(getTopPersistentErrors());
+  const [retrainingAnalytics, setRetrainingAnalytics] = useState(getRetrainingAnalytics());
 
   useEffect(() => {
     const p = getProfile();
@@ -52,6 +54,7 @@ export function ParentDashboard() {
     setAttempts(getAttempts());
     setRetrainingState(getRetrainingState());
     setPersistentErrors(getTopPersistentErrors());
+    setRetrainingAnalytics(getRetrainingAnalytics());
     if (p.selectedModel) {
       setSelectedModel(p.selectedModel);
     }
@@ -393,29 +396,29 @@ export function ParentDashboard() {
         </div>
       </div>
 
-      {/* SENTENCE RETRAINING TRAJECTORY (Persistent Errors & Independence) */}
+      {/* SENTENCE RETRAINING REPORT ("Think First, Write Once" Fluency & Correction) */}
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" /> Sentence Retraining Trajectory
+              <Sparkles className="w-5 h-5 text-indigo-600" /> Sentence Retraining: First-Draft Fluency Report
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tracks elimination of habitual awkward openings, comma splices, and vague causal links.
+              Measures mental sentence formulation (&ldquo;Think First, Write Once&rdquo;) separately from Stage D post-feedback corrections. Excludes failed AI evaluations and legacy fallback scores.
             </p>
           </div>
           <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 w-fit">
-            Adaptive 3-Tier Drill Loop
+            Think First, Write Once
           </span>
         </div>
 
         {retrainingState.hasUnverifiedHistoricalData && (
           <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-xs text-amber-950 space-y-1">
             <span className="font-extrabold uppercase tracking-wider text-[10px] text-amber-900 block">
-              Unverified Historical Data Notice
+              Unverified Historical Data Excluded from Fluency Metrics
             </span>
             <p className="leading-relaxed">
-              Cumulative statistics include earlier attempts recorded before Rubric v2 that may have been scored by a legacy fallback heuristic. Verified AI-graded counts since the fix:{" "}
+              Earlier attempts recorded before Rubric v2 are preserved in the historical log below but excluded from verified fluency statistics. Verified AI-graded counts:{" "}
               <strong>
                 {retrainingState.verifiedAiStats?.firstAttemptPassCount || 0}/
                 {retrainingState.verifiedAiStats?.firstAttemptCount || 0} first-attempt passes
@@ -430,57 +433,181 @@ export function ParentDashboard() {
           </div>
         )}
 
-        {/* 4 Core Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Primary Fluency & Timing Metrics (6 Cards) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-bold uppercase text-slate-500">First-Attempt Accuracy</span>
+            <span className="text-[10px] font-bold uppercase text-slate-500">
+              Unseen First-Draft Pass
+            </span>
             <div className="text-xl font-black text-slate-900 mt-1">
-              {retrainingState.firstAttemptCount > 0
-                ? `${Math.round((retrainingState.firstAttemptPassCount / retrainingState.firstAttemptCount) * 100)}%`
+              {retrainingAnalytics.unseenFirstAttemptPassRate !== null
+                ? `${retrainingAnalytics.unseenFirstAttemptPassRate}%`
                 : "—"}
             </div>
             <span className="text-[11px] text-slate-500">
-              {retrainingState.firstAttemptPassCount}/{retrainingState.firstAttemptCount} without retry
+              {retrainingAnalytics.unseenFirstAttemptPassed}/
+              {retrainingAnalytics.unseenFirstAttemptTotal} unseen questions
             </span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Success After Correction</span>
+            <span className="text-[10px] font-bold uppercase text-slate-500">
+              Median Prep Time
+            </span>
             <div className="text-xl font-black text-slate-900 mt-1">
-              {retrainingState.retryTotalCount > 0
-                ? `${Math.round((retrainingState.retrySuccessCount / retrainingState.retryTotalCount) * 100)}%`
+              {retrainingAnalytics.medianPrepTimeSeconds !== null
+                ? `${retrainingAnalytics.medianPrepTimeSeconds}s`
                 : "—"}
             </div>
             <span className="text-[11px] text-slate-500">
-              {retrainingState.retrySuccessCount}/{retrainingState.retryTotalCount} retries fixed
+              Stage A mental planning
             </span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-bold uppercase text-slate-500">Independent Sentence Accuracy</span>
+            <span className="text-[10px] font-bold uppercase text-slate-500">
+              Median Writing Time
+            </span>
             <div className="text-xl font-black text-slate-900 mt-1">
-              {retrainingState.independentCount > 0
-                ? `${Math.round((retrainingState.independentPassCount / retrainingState.independentCount) * 100)}%`
+              {retrainingAnalytics.medianWritingTimeSeconds !== null
+                ? `${retrainingAnalytics.medianWritingTimeSeconds}s`
                 : "—"}
             </div>
             <span className="text-[11px] text-slate-500">
-              {retrainingState.independentPassCount}/{retrainingState.independentCount} unseen prompts
+              First keystroke &rarr; submit (45s target)
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-500">
+              Stage D Correction Rate
+            </span>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {retrainingAnalytics.correctionSuccessRate !== null
+                ? `${retrainingAnalytics.correctionSuccessRate}%`
+                : "—"}
+            </div>
+            <span className="text-[11px] text-slate-500">
+              {retrainingAnalytics.correctionSuccessCount}/
+              {retrainingAnalytics.correctionTotalCount} defects repaired
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+            <span className="text-[10px] font-bold uppercase text-indigo-800">
+              Delayed Transfer
+            </span>
+            <div className="text-xl font-black text-indigo-950 mt-1">
+              {retrainingAnalytics.delayedTransferPassRate !== null
+                ? `${retrainingAnalytics.delayedTransferPassRate}%`
+                : "—"}
+            </div>
+            <span className="text-[11px] text-indigo-700">
+              {retrainingAnalytics.delayedTransferPassed}/
+              {retrainingAnalytics.delayedTransferTotal} post-remediation unseen
             </span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200">
-            <span className="text-[10px] font-bold uppercase text-emerald-800">Mastered Skills</span>
+            <span className="text-[10px] font-bold uppercase text-emerald-800">
+              Fluent First Drafts
+            </span>
             <div className="text-xl font-black text-emerald-950 mt-1">
-              {Object.values(retrainingState.masteredSkills || {}).filter((m) => m.mastered).length}
+              {retrainingAnalytics.fluentFirstDraftCount}
             </div>
-            <span className="text-[11px] text-emerald-700">3 unique topics + 1 independent</span>
+            <span className="text-[11px] text-emerald-700">
+              &ge;90% quality within 45s
+            </span>
           </div>
         </div>
 
-        {/* Top Persistent Errors */}
+        {/* First-Draft Quality Trend vs Stage D Corrected Scores */}
+        <div className="space-y-2.5 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              First-Draft Quality Trend (Separated from Stage D Corrections)
+            </h3>
+            <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-500">
+              <span>
+                Fluent (&ge;90% &le;45s):{" "}
+                <strong className="text-emerald-700">
+                  {retrainingAnalytics.fluentFirstDraftCount}
+                </strong>
+              </span>
+              <span>
+                High Quality (&ge;90%):{" "}
+                <strong className="text-indigo-700">
+                  {retrainingAnalytics.highQualityFirstDraftCount}
+                </strong>
+              </span>
+              <span>
+                Developing (80–89%):{" "}
+                <strong className="text-amber-700">
+                  {retrainingAnalytics.developingFirstDraftCount}
+                </strong>
+              </span>
+              <span>
+                Not Mastered (&lt;80%):{" "}
+                <strong className="text-rose-700">
+                  {retrainingAnalytics.notMasteredFirstDraftCount}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {retrainingAnalytics.firstDraftQualityTrend.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">
+              No verified first-draft attempts recorded yet. Complete a &ldquo;Think First, Write Once&rdquo; drill to populate the trend.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+              {retrainingAnalytics.firstDraftQualityTrend
+                .slice(-14)
+                .map((item, idx) => {
+                  const badgeStyle =
+                    item.qualityBand === "fluent_first_draft"
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                      : item.qualityBand === "high_quality"
+                      ? "bg-indigo-50 border-indigo-300 text-indigo-950"
+                      : item.qualityBand === "developing"
+                      ? "bg-amber-50 border-amber-300 text-amber-950"
+                      : "bg-rose-50 border-rose-200 text-rose-950";
+                  return (
+                    <div
+                      key={`${item.timestamp}-${idx}`}
+                      className={`p-2.5 rounded-xl border text-xs ${badgeStyle}`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-bold opacity-75">
+                        <span>#{idx + 1}</span>
+                        <span className="truncate max-w-[70px]">
+                          {item.questionId.replace("retrain-", "")}
+                        </span>
+                      </div>
+                      <div className="text-sm font-black mt-1">
+                        1st: {item.qualityScore}%
+                      </div>
+                      {item.correctedScore !== undefined && (
+                        <div className="text-[10px] font-semibold mt-0.5 opacity-90">
+                          Fix: {item.correctedScore}%
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+
+          {retrainingAnalytics.accessibleModeAttemptsCount > 0 && (
+            <p className="text-[11px] text-slate-500">
+              Note: {retrainingAnalytics.accessibleModeAttemptsCount} attempt(s) completed in Accessible Editing Mode are tracked in the attempt history log and excluded from strict first-draft fluency counts above.
+            </p>
+          )}
+        </div>
+
+        {/* Most Frequent Grammatical or Stylistic Defects */}
         <div className="space-y-3 pt-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-            Error Category Recurrence &amp; Resolution
+            Most Frequent Grammatical &amp; Stylistic Defects
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             {Object.entries(retrainingState.errorFrequencies).map(([errKey, freq]) => {

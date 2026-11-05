@@ -1276,6 +1276,10 @@ Return JSON adhering strictly to:
           structuralExplanation,
           studentText,
           attemptNumber = 1,
+          attemptStage,
+          firstDraftText,
+          targetDefectToFix,
+          targetPhraseToFix,
           prohibitedOpening,
         } = payload || {};
 
@@ -1322,6 +1326,10 @@ Return JSON adhering strictly to:
             structuralExplanation,
             studentText: text,
             attemptNumber,
+            attemptStage,
+            firstDraftText,
+            targetDefectToFix,
+            targetPhraseToFix,
             prohibitedOpening,
             selectedModel,
           });

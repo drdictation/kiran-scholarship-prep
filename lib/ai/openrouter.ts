@@ -425,12 +425,14 @@ export const SentenceRetrainingSchema = z.object({
     .optional()
     .transform((v) => v ?? true),
   score: z.number().min(0).max(10).nullable().optional(),
+  qualityScore: z.number().min(0).max(100).nullable().optional(),
   passed: z.boolean().nullable().optional(),
+  grammaticalCorrectness: z.number().int().min(0).max(2).nullable().optional(),
   clarity: z.number().int().min(0).max(2),
   naturalness: z.number().int().min(0).max(2),
   precision: z.number().int().min(0).max(2),
   causalCompleteness: z.number().int().min(0).max(2),
-  compliance: z.number().int().min(0).max(2),
+  compliance: z.number().int().min(0).max(2).nullable().optional(),
   defect: SentenceRetrainingDefectEnum.nullable()
     .optional()
     .transform((v) => v ?? undefined),
@@ -438,6 +440,7 @@ export const SentenceRetrainingSchema = z.object({
   feedback: z.string().min(1),
   structuralDifference: NullableOptString,
   prohibitedOpening: NullableOptString,
+  defectCorrected: z.boolean().nullable().optional(),
   xpAwarded: z.number().nullable().optional(),
 });
 
@@ -454,6 +457,10 @@ export interface SentenceRetrainingInput {
   structuralExplanation?: string;
   studentText: string;
   attemptNumber?: number;
+  attemptStage?: "first_draft" | "correction";
+  firstDraftText?: string;
+  targetDefectToFix?: SentenceRetrainingErrorType | null;
+  targetPhraseToFix?: string | null;
   prohibitedOpening?: string | null;
   selectedModel?: string;
 }
@@ -468,6 +475,16 @@ export function calcRetrainingXp(
   if (attemptNumber <= 1) return base;
   if (attemptNumber === 2) return Math.round(base * 0.5);
   return Math.round(base * 0.25);
+}
+
+export function stripModelSentenceFromFeedback(feedback: string): string {
+  if (!feedback) return feedback;
+  // Remove any trailing "Better: '...'" or 'Better: "..."' from Stage C first-draft feedback
+  const stripped = feedback
+    .replace(/\s*Better:\s*['"“”‘’][\s\S]*$/i, "")
+    .replace(/\s*For example:\s*['"“”‘’][\s\S]*$/i, "")
+    .trim();
+  return stripped || feedback;
 }
 
 export function buildSentenceRetrainingPrompts(input: SentenceRetrainingInput): {
@@ -486,8 +503,15 @@ export function buildSentenceRetrainingPrompts(input: SentenceRetrainingInput): 
     modelAnswer,
     studentText,
     attemptNumber = 1,
+    attemptStage,
+    firstDraftText,
+    targetDefectToFix,
+    targetPhraseToFix,
     prohibitedOpening,
   } = input;
+
+  const isFirstDraftStage = attemptStage === "first_draft";
+  const isCorrectionStage = attemptStage === "correction";
 
   let drillSpecificSection = "";
 
@@ -531,57 +555,31 @@ INDEPENDENT GRADING CRITERIA:
 4. CRITICAL: Do NOT award full marks (or passing marks) for repeating the proposition verbatim followed by a wordy connector (e.g. "due to the fact that") and a vague or implausible benefit (e.g. "because it can make them fitter, and want to work more" or "make people healthier and exercise more" without explaining how).`;
   }
 
-  const systemPrompt = `You are a calibrated, strict Australian Grade 5 scholarship exam writing coach evaluating a single sentence in "Sentence Retraining Mode".
+  const correctionSection = isCorrectionStage
+    ? `
+STAGE D — INDEPENDENT CORRECTION ASSESSMENT:
+- Student's First Draft: "${firstDraftText || "N/A"}"
+- Target Primary Defect to Fix: "${targetDefectToFix || "N/A"}"
+- Flagged Phrase in First Draft: "${targetPhraseToFix || "N/A"}"
+- Set "defectCorrected": true ONLY if the student's rewrite genuinely repaired the target defect above without introducing a new grammatical or logical failure. Otherwise set "defectCorrected": false.`
+    : "";
 
-${drillSpecificSection}
-${prohibitedOpening ? `PROHIBITED OPENING (Student must NOT begin with this): "${prohibitedOpening}"` : ""}
-
-EVALUATION RUBRIC — Score each of the 5 dimensions independently as 0, 1, or 2:
-
-A. clarity (0–2)
-   2 = Meaning immediately understandable; pronoun references and relationships are clear.
-   1 = Meaning understandable but requires rereading or contains minor ambiguity (e.g. ambiguous "it" without a clear singular noun antecedent, or awkward modifier placement like "should be only paid").
-   0 = Meaning substantially unclear, contradictory, or difficult to reconstruct.
-
-B. naturalness (0–2) [Naturalness and grammar]
-   2 = Grammatically sound, natural expression without unnecessary complexity.
-   1 = Minor grammatical errors (e.g. single subject–verb disagreement like "Replacing car parks ... help" in an otherwise clear sentence), awkward phrasing, or avoidable verbosity (e.g. "due to the fact that" instead of "because", or unnecessarily repeating the entire prompt).
-   0 = Serious grammatical or structural problems (e.g. comma splice, run-on sentence, sentence fragment, or broken syntax) that interfere with comprehension.
-
-C. precision (0–2)
-   2 = Specific, relevant, concrete information; avoids vague or generic claims.
-   1 = Relevant but somewhat vague, repetitive, or imprecise (e.g. generic outcomes like "become healthier", "build communities", "make them fitter, and want to work more").
-   0 = Mostly generic, circular, irrelevant, or insufficiently specific (e.g. "makes things better", "is good for everyone").
-
-D. causalCompleteness (0–2)
-   2 = A plausible mechanism connects the action or claim to its consequence (or, for non-causal descriptive/contrast tasks, the sentence fully performs its intended explanatory function).
-   1 = The causal relationship is plausible but incompletely explained (missing the intermediate step showing how the action causes the outcome, e.g. jumping from wider footpaths to "exercise more" without explaining how footpaths encourage walking).
-   0 = No meaningful causal connection, circular reasoning (restating the claim as the reason), or an implausible leap (e.g. claiming household chores make children physically "fitter").
-
-E. compliance (0–2) [Task compliance]
-   2 = Meets the exercise's meaningful requirements.
-   1 = Minor deviation that does not undermine the learning objective (e.g. using a clear conditional or participial clause instead of a listed conjunction, or compressing a minor descriptive modifier while preserving all core ideas).
-   0 = Fails the central requirement (e.g. fails to fix the target problem in Rebuild, contradicts the original meaning, omits a whole causal step in Constrained, ignores the proposition, or copies a prohibited opening).
-
-SCORING SAFEGUARDS:
-- Do NOT penalise a sentence merely for being short. A concise 8–14 word sentence that is clear and complete earns full marks.
-- Do NOT reward unnecessary complexity or length.
-- Do NOT treat the presence of words like "because", "therefore", or "so" as proof of causal reasoning.
-- Do NOT treat their absence as proof that causal reasoning is missing.
-- Minor grammatical errors in an otherwise strong sentence should receive a proportionate deduction (naturalness = 1, defect = "GRAMMATICAL_ERROR") rather than zeros across other dimensions.
-
-DEFECT TAXONOMY (Set "defect" to the single primary flaw if any dimension < 2, or null if all dimensions are 2):
-"VAGUE_SUBJECT" | "VAGUE_VERB" | "AWKWARD_COLLOCATION" | "MISSING_MECHANISM" | "GRAMMATICAL_ERROR" | "REPETITION" | "UNNECESSARY_WORDS" | "SENTENCE_FRAGMENT" | "RUN_ON_SENTENCE" | "MEANING_CHANGED" | null
-
-STUDENT FEEDBACK REQUIREMENTS:
+  const feedbackFormatInstruction = isFirstDraftStage
+    ? `STUDENT FEEDBACK REQUIREMENTS (STAGE C — FIRST DRAFT):
+- Feedback must be concise (1–2 short sentences), child-friendly (Grade 5), and actionable.
+- If the sentence passes with high quality: state briefly why it works without generic praise.
+- If correction is needed:
+  1. Name the primary problem clearly and point to the exact problematic phrase.
+  2. Explain briefly in Grade 5 language how to fix it (e.g. "Costs can be high, or buses can cost more, but not 'cost higher'." or "'Disposed' needs 'of' — write 'are disposed of' or 'are thrown away'." or "Say what specific skill improves instead of 'helps their brains'.").
+  3. CRITICAL: Do NOT include a complete rewritten model sentence or "Better: '...'" in Stage C feedback! The student must rewrite the sentence independently in the next step.`
+    : `STUDENT FEEDBACK REQUIREMENTS:
 Feedback must be concise, child-friendly (Grade 5), and actionable.
-For each attempt:
 - If the sentence is strong (score 9–10, no defect): state briefly why it works without generic praise.
   Example:
   Student: "Community gardens provide vegetables for local families, reducing their grocery bills."
   Feedback: "Clear and specific. You explain how community gardens can save families money."
 - If correction is needed (any dimension < 2):
-  1. State the most important problem (if there is both a grammar error like subject–verb disagreement and a missing mechanism, briefly mention both as in Example 1).
+  1. State the most important problem (if there is both a grammar error like subject–verb disagreement and a missing mechanism, briefly mention both).
   2. Explain briefly why it affects the sentence.
   3. Provide ONE improved version prefixed with "Better: '...'".
   Example 1:
@@ -589,12 +587,78 @@ For each attempt:
   Feedback: "Use 'helps', not 'help'. Also explain what people can do in the parks. Better: 'Replacing car parks with public parks gives residents more places to exercise.'"
   Example 2:
   Student: "Children should do chores because it makes them fitter and want to work more."
-  Feedback: "The reason is unclear. Household chores are more directly connected to responsibility than fitness. Better: 'Doing household chores teaches children to contribute to their family.'"
-- Never give generic praise to weak sentences. Do not overwhelm the student with multiple corrections.
+  Feedback: "The reason is unclear. Household chores are more directly connected to responsibility than fitness. Better: 'Doing household chores teaches children to contribute to their family.'"`;
+
+  const systemPrompt = `You are a calibrated, strict Australian Grade 5 scholarship exam writing coach evaluating a single sentence in "Sentence Retraining Mode".
+
+${drillSpecificSection}
+${prohibitedOpening ? `PROHIBITED OPENING (Student must NOT begin with this): "${prohibitedOpening}"` : ""}
+${correctionSection}
+
+AUSTRALIAN ENGLISH STANDARD (CRITICAL):
+- Accept standard Australian English spelling, vocabulary, and grammar as 100% correct.
+- Specifically, past tense / past participle forms such as "earnt", "learnt", "spelt", "dreamt", "burnt", and "spoilt", as well as "towards", "whilst", "amongst", "footpaths", "kerb", "rubbish", "maths", "sport", "colour", "behaviour", "neighbour", and "programme" are standard Australian English.
+- NEVER penalise "earnt" (e.g. "money they have earnt") or other valid Australian English usage under grammaticalCorrectness or naturalness.
+
+CALIBRATION EXAMPLES — MUST FLAG AND PENALISE THESE SPECIFIC DEFECTS:
+1. "Electric buses cost substantially higher..." -> WRONG COLLOCATION (defect = "AWKWARD_COLLOCATION", naturalness <= 1, grammaticalCorrectness <= 1). Costs are higher, or buses cost more; buses cannot "cost higher".
+2. "...get disposed..." (e.g. "plastic bags get disposed in landfills") -> INCOMPLETE PHRASAL PASSIVE (defect = "GRAMMATICAL_ERROR" or "AWKWARD_COLLOCATION", grammaticalCorrectness <= 1, naturalness <= 1). Must be "are disposed of" or "are thrown away".
+3. "...owners get contact..." (e.g. "pet owners get contact faster") -> UNGRAMMATICAL COLLOCATION (defect = "AWKWARD_COLLOCATION" or "GRAMMATICAL_ERROR", grammaticalCorrectness <= 1, naturalness <= 1). Should be "owners can be contacted" or "vets can contact owners".
+4. "...engineering curiosity grows..." -> UNNATURAL NOUN PHRASE & UNNECESSARY CAUSAL EXTENSION (defect = "AWKWARD_COLLOCATION" or "UNNECESSARY_WORDS", naturalness <= 1, precision <= 1). Stop once the concrete mechanism is proved.
+5. "...helps children's brains." / "...good for their brains." -> TOO VAGUE when a specific cognitive or learning skill is available (defect = "VAGUE_VERB" or "MISSING_MECHANISM", precision <= 1, causalCompleteness <= 1).
+
+CALIBRATION EXAMPLES — STRONG GRADE 5 BENCHMARKS (EARN 9–10/10, ALL 2s, NO DEFECT):
+- "Children should receive an allowance only after completing household chores because earning money teaches them that income requires effort."
+- "Children who complete household chores before receiving pocket money learn that money must be earnt through effort."
+- "Separated bicycle lanes protect riders from traffic, making parents more willing to let children cycle to school."
+- "The ban would reduce litter because shoppers would bring reusable bags instead of discarding plastic ones."
+
+EVALUATION DIMENSIONS — Score each dimension independently as 0, 1, or 2:
+
+1. grammaticalCorrectness (0–2)
+   2 = Grammatically sound: correct subject–verb agreement, verb tense, articles, prepositions (including phrasal verbs like "disposed of"), and clause boundaries.
+   1 = Minor grammatical error (e.g. single subject–verb disagreement like "Replacing car parks ... give" in an otherwise clear sentence, missing preposition in "get disposed", or awkward modifier placement like "should be only paid").
+   0 = Serious grammatical or structural error (comma splice, run-on sentence, sentence fragment, or broken syntax like "owners get contact").
+
+2. naturalness (0–2)
+   2 = Idiomatic Australian English, natural collocations, no awkward passives or bloated connectors.
+   1 = Awkward collocation (e.g. "cost substantially higher", "engineering curiosity grows", "get disposed"), clunky passive, or avoidable verbosity (e.g. "due to the fact that").
+   0 = Severely unnatural or garbled phrasing that impedes reading.
+
+3. clarity (0–2)
+   2 = Meaning immediately understandable; unambiguous subject and pronoun reference.
+   1 = Meaning understandable but requires rereading or contains minor pronoun/subject ambiguity (e.g. ambiguous "it" without a clear singular noun antecedent).
+   0 = Meaning substantially unclear, contradictory, or difficult to reconstruct.
+
+4. precision (0–2)
+   2 = Specific mechanism and concrete terms; no redundant filler or vague outcomes.
+   1 = Somewhat vague or generic outcome (e.g. "helps children's brains", "become healthier and build communities", "make them fitter, and want to work more") or unnecessary causal extension.
+   0 = Mostly generic, circular, irrelevant, or empty labels ("makes things better", "is good for everyone").
+
+5. causalCompleteness (0–2)
+   2 = Cause linked clearly to effect with a plausible mechanism, without missing steps or unnecessary continuation.
+   1 = Plausible causal relationship but missing an intermediate explanatory link (e.g. jumping from wider footpaths to "exercise more" without explaining how footpaths encourage walking).
+   0 = No meaningful causal connection, circular reasoning, or implausible leap (e.g. claiming chores make children physically "fitter" or robots double IQ overnight).
+
+6. compliance (0–2) [Task compliance]
+   2 = Meets the exercise's meaningful requirements.
+   1 = Minor deviation that does not undermine the learning objective.
+   0 = Fails the central requirement (fails to fix the target problem in Rebuild, contradicts original meaning, omits a core note in Constrained, ignores the proposition, or copies a prohibited opening).
+
+SCORING SAFEGUARDS:
+- Do NOT penalise a sentence merely for being short. A concise 8–14 word sentence that is clear and complete earns full marks.
+- Do NOT reward unnecessary complexity or long causal chains. Stop once the point is proved.
+- Do NOT treat the presence of words like "because", "therefore", or "so" as proof of causal reasoning, nor their absence as proof that causal reasoning is missing.
+
+DEFECT TAXONOMY (Set "defect" to the single primary flaw if any dimension < 2, or null if all dimensions are 2):
+"VAGUE_SUBJECT" | "VAGUE_VERB" | "AWKWARD_COLLOCATION" | "MISSING_MECHANISM" | "GRAMMATICAL_ERROR" | "REPETITION" | "UNNECESSARY_WORDS" | "SENTENCE_FRAGMENT" | "RUN_ON_SENTENCE" | "MEANING_CHANGED" | null
+
+${feedbackFormatInstruction}
 
 Return JSON strictly matching:
 {
   "valid": true,
+  "grammaticalCorrectness": 0 | 1 | 2,
   "clarity": 0 | 1 | 2,
   "naturalness": 0 | 1 | 2,
   "precision": 0 | 1 | 2,
@@ -602,12 +666,13 @@ Return JSON strictly matching:
   "compliance": 0 | 1 | 2,
   "defect": "VAGUE_SUBJECT" | "VAGUE_VERB" | "AWKWARD_COLLOCATION" | "MISSING_MECHANISM" | "GRAMMATICAL_ERROR" | "REPETITION" | "UNNECESSARY_WORDS" | "SENTENCE_FRAGMENT" | "RUN_ON_SENTENCE" | "MEANING_CHANGED" | null,
   "problematicPhrase": "exact problematic phrase from student sentence, or null",
-  "feedback": "Concise actionable feedback (including Better: '...' when correction is needed)",
+  "feedback": "Concise actionable Grade 5 feedback",
   "structuralDifference": "One short sentence comparing structure with model answer, or null",
-  "prohibitedOpening": "Opening words to prohibit on retry if defect is VAGUE_SUBJECT, or null"
+  "prohibitedOpening": "Opening words to prohibit on retry if defect is VAGUE_SUBJECT, or null",
+  "defectCorrected": boolean
 }`;
 
-  const userPrompt = `STUDENT RESPONSE (Attempt #${attemptNumber}):
+  const userPrompt = `STUDENT RESPONSE (Attempt #${attemptNumber}${attemptStage ? `, Stage: ${attemptStage}` : ""}):
 "${studentText.trim()}"`;
 
   return { systemPrompt, userPrompt };
@@ -626,11 +691,80 @@ export function computeRetrainingScoreAndVerdict(
   let naturalness = rawParsed.naturalness;
   let precision = rawParsed.precision;
   let causalCompleteness = rawParsed.causalCompleteness;
-  let compliance = rawParsed.compliance;
+  let compliance = rawParsed.compliance ?? 2;
+  let grammaticalCorrectness =
+    rawParsed.grammaticalCorrectness ?? rawParsed.naturalness;
   let defect: SentenceRetrainingErrorType | undefined = rawParsed.defect;
   let problematicPhrase = rawParsed.problematicPhrase;
   let feedback = rawParsed.feedback;
-  let prohibitedOpening = rawParsed.prohibitedOpening || input.prohibitedOpening || undefined;
+  let prohibitedOpening =
+    rawParsed.prohibitedOpening || input.prohibitedOpening || undefined;
+
+  // Australian English safeguard: never penalise valid Australian past participles ("earnt", "learnt", "spelt", "dreamt", "burnt", "spoilt")
+  const ausForms = ["earnt", "learnt", "spelt", "dreamt", "burnt", "spoilt"];
+  if (
+    problematicPhrase &&
+    ausForms.includes(problematicPhrase.trim().toLowerCase()) &&
+    (defect === "GRAMMATICAL_ERROR" || defect === "AWKWARD_COLLOCATION")
+  ) {
+    grammaticalCorrectness = 2;
+    naturalness = 2;
+    defect = undefined;
+    problematicPhrase = undefined;
+    feedback =
+      "Clear and natural Australian English sentence with a complete explanation.";
+  }
+
+  // Deterministic calibration checks for recurring audit defects
+  // 1. "cost substantially higher" / "costs higher" / "cost higher"
+  if (/\bcosts?\s+(?:\w+\s+)?higher\b/i.test(text)) {
+    naturalness = Math.min(naturalness, 1);
+    grammaticalCorrectness = Math.min(grammaticalCorrectness, 1);
+    precision = Math.min(precision, 1);
+    defect = defect || "AWKWARD_COLLOCATION";
+    const match = text.match(/\bcosts?\s+(?:\w+\s+)?higher\b/i);
+    if (match && !problematicPhrase) problematicPhrase = match[0];
+  }
+
+  // 2. "...get disposed..." / "...gets disposed..." without "of"
+  if (/\b(?:get|gets|got|getting)\s+disposed\b(?!\s+of\b)/i.test(text)) {
+    grammaticalCorrectness = Math.min(grammaticalCorrectness, 1);
+    naturalness = Math.min(naturalness, 1);
+    precision = Math.min(precision, 1);
+    defect = defect || "AWKWARD_COLLOCATION";
+    const match = text.match(/\b(?:get|gets|got|getting)\s+disposed\b/i);
+    if (match && !problematicPhrase) problematicPhrase = match[0];
+  }
+
+  // 3. "...owners get contact..." / "...get contact..."
+  if (/\b(?:get|gets|got)\s+contact\b/i.test(text)) {
+    grammaticalCorrectness = Math.min(grammaticalCorrectness, 1);
+    naturalness = Math.min(naturalness, 1);
+    clarity = Math.min(clarity, 1);
+    defect = defect || "AWKWARD_COLLOCATION";
+    const match = text.match(/\b(?:\w+\s+)?(?:get|gets|got)\s+contact\b/i);
+    if (match && !problematicPhrase) problematicPhrase = match[0];
+  }
+
+  // 4. "...engineering curiosity grows..."
+  if (/\bengineering\s+curiosity\s+grows\b/i.test(text)) {
+    naturalness = Math.min(naturalness, 1);
+    precision = Math.min(precision, 1);
+    defect = defect || "AWKWARD_COLLOCATION";
+    const match = text.match(/\bengineering\s+curiosity\s+grows\b/i);
+    if (match && !problematicPhrase) problematicPhrase = match[0];
+  }
+
+  // 5. "...helps children's brains" / "...helps their brains"
+  if (/\b(?:helps?|good\s+for)\s+(?:children'?s|their|kids'?|students'?)\s+brains?\b/i.test(text)) {
+    precision = Math.min(precision, 1);
+    causalCompleteness = Math.min(causalCompleteness, 1);
+    defect = defect || "VAGUE_VERB";
+    const match = text.match(
+      /\b(?:helps?|good\s+for)\s+(?:children'?s|their|kids'?|students'?)\s+brains?\b/i
+    );
+    if (match && !problematicPhrase) problematicPhrase = match[0];
+  }
 
   // Deterministic pre-check 1: Reused prohibited opening from prior attempt
   if (
@@ -660,20 +794,32 @@ export function computeRetrainingScoreAndVerdict(
   if (words.length < 4) {
     clarity = Math.min(clarity, 1);
     naturalness = 0;
+    grammaticalCorrectness = 0;
     causalCompleteness = 0;
     defect = "SENTENCE_FRAGMENT";
   }
 
-  // Safeguard: If GRAMMATICAL_ERROR, RUN_ON_SENTENCE, or SENTENCE_FRAGMENT is diagnosed,
-  // naturalness cannot be 2/2.
+  // Sync grammaticalCorrectness and naturalness when grammar defects are diagnosed
   if (
     defect === "GRAMMATICAL_ERROR" ||
     defect === "RUN_ON_SENTENCE" ||
     defect === "SENTENCE_FRAGMENT"
   ) {
-    if (naturalness === 2) {
-      naturalness = 1;
+    if (naturalness === 2) naturalness = 1;
+    if (grammaticalCorrectness === 2) grammaticalCorrectness = 1;
+    if (defect === "RUN_ON_SENTENCE" || defect === "SENTENCE_FRAGMENT") {
+      grammaticalCorrectness = 0;
     }
+  }
+
+  if (grammaticalCorrectness === 0) {
+    naturalness = 0;
+  } else if (grammaticalCorrectness === 1 && naturalness === 2) {
+    naturalness = 1;
+  }
+
+  if (defect === "AWKWARD_COLLOCATION" && naturalness === 2) {
+    naturalness = 1;
   }
 
   // Safeguard: If MISSING_MECHANISM is diagnosed, causalCompleteness cannot be 2/2.
@@ -685,21 +831,24 @@ export function computeRetrainingScoreAndVerdict(
   let score =
     clarity + naturalness + precision + causalCompleteness + compliance;
 
-  // Safeguard 1: Serious clarity or grammar failure (0 in clarity or naturalness, or structural run-on/fragment)
+  // Safeguard 1: Serious clarity or grammar failure (0 in clarity, naturalness, or grammaticalCorrectness, or structural run-on/fragment)
   // cannot pass or receive high marks (capped at <= 6/10).
   if (
     clarity === 0 ||
     naturalness === 0 ||
+    grammaticalCorrectness === 0 ||
     defect === "RUN_ON_SENTENCE" ||
     defect === "SENTENCE_FRAGMENT"
   ) {
     score = Math.min(score, 6);
   }
 
-  // Safeguard 2: Any grammar/clarity impairment (naturalness <= 1 or clarity <= 1 or GRAMMATICAL_ERROR)
+  // Safeguard 2: Any grammar/clarity/naturalness impairment (naturalness <= 1, grammaticalCorrectness <= 1, clarity <= 1, GRAMMATICAL_ERROR, or AWKWARD_COLLOCATION)
   // cannot receive 9–10/10 (max 8/10 for a minor error in an otherwise strong sentence).
   if (
     defect === "GRAMMATICAL_ERROR" ||
+    defect === "AWKWARD_COLLOCATION" ||
+    grammaticalCorrectness <= 1 ||
     naturalness <= 1 ||
     clarity <= 1
   ) {
@@ -725,6 +874,7 @@ export function computeRetrainingScoreAndVerdict(
   }
 
   const hasZeroDimension =
+    grammaticalCorrectness === 0 ||
     clarity === 0 ||
     naturalness === 0 ||
     precision === 0 ||
@@ -737,9 +887,57 @@ export function computeRetrainingScoreAndVerdict(
     defect === "MEANING_CHANGED" ||
     (defect === "MISSING_MECHANISM" && causalCompleteness === 0);
 
+  // Unnatural collocations or vague brain/outcome claims must require correction (< 80% / <= 7/10)
+  if (
+    (defect === "AWKWARD_COLLOCATION" || defect === "VAGUE_VERB") &&
+    (precision <= 1 || causalCompleteness <= 1 || grammaticalCorrectness <= 1)
+  ) {
+    score = Math.min(score, 7);
+  }
+
   const passed = score >= 7 && !hasZeroDimension && !hasDisqualifyingDefect;
   if (!passed && score > 6) {
     score = 6;
+  }
+
+  const qualityScore = score * 10;
+
+  // First-draft quality pass requires >= 80% (score >= 8), no disqualifying/collocation/mechanism defect,
+  // and sound grammar/naturalness/causal completeness.
+  const firstDraftQualityPass =
+    qualityScore >= 80 &&
+    !hasZeroDimension &&
+    !hasDisqualifyingDefect &&
+    grammaticalCorrectness === 2 &&
+    naturalness === 2 &&
+    causalCompleteness === 2 &&
+    !defect;
+
+  const highQualityFirstDraft = qualityScore >= 90 && firstDraftQualityPass;
+
+  // Stage C rule: NEVER show a complete corrected model sentence on a failed first draft
+  if (input.attemptStage === "first_draft" && !firstDraftQualityPass) {
+    feedback = stripModelSentenceFromFeedback(feedback);
+  }
+
+  // Stage D rule: Determine whether the specific primary defect from Stage C was repaired
+  let defectCorrected: boolean | undefined = undefined;
+  if (input.attemptStage === "correction") {
+    const changedText =
+      !input.firstDraftText ||
+      input.firstDraftText.trim().toLowerCase() !== lower;
+    const targetFixed =
+      !input.targetDefectToFix || defect !== input.targetDefectToFix;
+    const phraseFixed =
+      !input.targetPhraseToFix ||
+      !lower.includes(input.targetPhraseToFix.trim().toLowerCase());
+    defectCorrected = Boolean(
+      changedText &&
+        (rawParsed.defectCorrected ?? true) &&
+        targetFixed &&
+        phraseFixed &&
+        passed
+    );
   }
 
   // Set prohibitedOpening if VAGUE_SUBJECT flagged and opening starts with This/It/There
@@ -752,15 +950,19 @@ export function computeRetrainingScoreAndVerdict(
   }
 
   const xpAwarded = calcRetrainingXp(
-    passed,
+    input.attemptStage === "first_draft" ? firstDraftQualityPass : passed,
     input.drillType === "independent",
-    input.attemptNumber || 1
+    input.attemptStage === "correction" ? 2 : input.attemptNumber || 1
   );
 
   return {
     valid: true,
     score,
+    qualityScore,
     passed,
+    firstDraftQualityPass,
+    highQualityFirstDraft,
+    grammaticalCorrectness,
     clarity,
     naturalness,
     precision,
@@ -774,6 +976,8 @@ export function computeRetrainingScoreAndVerdict(
       input.structuralExplanation ||
       undefined,
     prohibitedOpening: prohibitedOpening || undefined,
+    defectCorrected,
+    attemptStage: input.attemptStage,
     xpAwarded,
     evaluationSource: "ai",
     rubricVersion: 2,

@@ -11,6 +11,10 @@ import type {
   SentenceRetrainingPrompt,
   RetrainingMastery,
   RetrainingAttemptProvenance,
+  RetrainingAnalyticsSummary,
+  RetrainingEditingMode,
+  RetrainingExposureRecord,
+  RetrainingQualityBand,
 } from "@/types";
 import { syncAttemptToGoogleDrive } from "@/lib/export-audit";
 import { computeLogicProfile } from "@/lib/logic-scoring";
@@ -426,24 +430,52 @@ function updateProfileWithAttempt(attempt: AttemptLog) {
       updateRollingScore("causal_reasoning", attempt.score, 0.35);
       break;
 
-    case "sentence_retraining":
-      updateRollingScore("causal_reasoning", attempt.score, 0.3);
-      updateRollingScore("sentence_combining", attempt.score, 0.3);
-      updateRollingScore("causal_progression", attempt.score, 0.3);
+    case "sentence_retraining": {
+      const isCorrectionAttempt =
+        attempt.details?.attemptStage === "correction" ||
+        (attempt.details?.attemptNumber || 1) > 1;
+      const isAccessibleMode =
+        attempt.details?.editingMode === "standard_accessible";
+      const reusedPriorSentence = Boolean(
+        attempt.details?.reusedPriorSentence
+      );
+
+      // Only genuine first-draft attempts in Think First, Write Once mode
+      // (and not reused memorised sentences) update core skill mastery.
+      if (!isCorrectionAttempt && !isAccessibleMode && !reusedPriorSentence) {
+        updateRollingScore("causal_reasoning", attempt.score, 0.3);
+        updateRollingScore("sentence_combining", attempt.score, 0.3);
+        updateRollingScore("causal_progression", attempt.score, 0.3);
+      }
       break;
+    }
   }
 
-  // Track transfer ability separately on unseen items
+  // Track transfer ability separately on unseen items (exclude retraining corrections, accessible mode, or reused sentences)
+  const isRetrainingExcludedFromTransfer =
+    attempt.exerciseType === "sentence_retraining" &&
+    (attempt.details?.attemptStage === "correction" ||
+      (attempt.details?.attemptNumber || 1) > 1 ||
+      attempt.details?.editingMode === "standard_accessible" ||
+      Boolean(attempt.details?.reusedPriorSentence) ||
+      attempt.details?.isUnseenQuestion === false);
+
   if (
-    attempt.transferStatus === "NEW" ||
-    attempt.transferStatus === "FAR_TRANSFER" ||
-    attempt.transferStatus === "NEAR_TRANSFER"
+    !isRetrainingExcludedFromTransfer &&
+    (attempt.transferStatus === "NEW" ||
+      attempt.transferStatus === "FAR_TRANSFER" ||
+      attempt.transferStatus === "NEAR_TRANSFER")
   ) {
     updateRollingScore("transfer_ability", attempt.score, 0.3);
   }
 
-  // Update Domain stats if available
-  if (attempt.domain && profile.domainStats[attempt.domain]) {
+  // Update Domain stats if available (for sentence_retraining, only count first drafts so corrections don't overwrite)
+  const skipDomainUpdate =
+    attempt.exerciseType === "sentence_retraining" &&
+    (attempt.details?.attemptStage === "correction" ||
+      (attempt.details?.attemptNumber || 1) > 1);
+
+  if (!skipDomainUpdate && attempt.domain && profile.domainStats[attempt.domain]) {
     const stats = profile.domainStats[attempt.domain];
     const newAttempts = stats.attempts + 1;
     const newAvg = Math.round(
@@ -578,6 +610,8 @@ const DEFAULT_RETRAINING_STATE: SentenceRetrainingState = {
     independentCount: 0,
     independentPassCount: 0,
   },
+  exposureHistory: {},
+  adaptivePrepSeconds: 12,
 };
 
 export function getRetrainingState(): SentenceRetrainingState {
@@ -621,6 +655,8 @@ export function getRetrainingState(): SentenceRetrainingState {
         ...DEFAULT_RETRAINING_STATE.verifiedAiStats!,
         ...(parsed.verifiedAiStats || {}),
       },
+      exposureHistory: parsed.exposureHistory || {},
+      adaptivePrepSeconds: parsed.adaptivePrepSeconds ?? 12,
     };
   } catch {
     return DEFAULT_RETRAINING_STATE;
@@ -650,47 +686,258 @@ export function getTopPersistentErrors(): SentenceRetrainingErrorType[] {
     .map((item) => item.err);
 }
 
+export function getGrammaticalPatternKey(prompt: SentenceRetrainingPrompt): string {
+  return `${prompt.drillType}:${
+    prompt.constraint || prompt.targetSkillOrError || prompt.domain || "general"
+  }`;
+}
+
+/**
+ * Build a 7-question Sentence Retraining session:
+ * - Strictly prioritises unseen questions first (based on exposureHistory and seenQuestions)
+ * - Targets persistent errors when selecting among unseen candidates
+ * - Avoids presenting multiple exercises with identical grammatical patterns consecutively
+ */
 export function buildRetrainingSession(
   allPrompts: SentenceRetrainingPrompt[]
 ): SentenceRetrainingPrompt[] {
   const persistentErrors = getTopPersistentErrors();
+  const profile = getProfile();
+  const state = getRetrainingState();
+  const seenMap = profile.seenQuestions || {};
+  const exposureMap = state.exposureHistory || {};
+
+  const getExposureCount = (id: string) =>
+    (exposureMap[id]?.attempts || 0) + (seenMap[id] || 0);
+
   const usedIds = new Set<string>();
-  const sessionPrompts: SentenceRetrainingPrompt[] = [];
+  const rawSelection: SentenceRetrainingPrompt[] = [];
 
   const pickForType = (
     drillType: "rebuild" | "constrained" | "independent",
     count: number
   ) => {
-    let pool = allPrompts.filter((p) => p.drillType === drillType && !usedIds.has(p.id));
-    if (persistentErrors.length > 0) {
-      const targeted = pool.filter(
-        (p) => p.targetSkillOrError && persistentErrors.includes(p.targetSkillOrError)
+    const candidates = allPrompts.filter(
+      (p) => p.drillType === drillType && !usedIds.has(p.id)
+    );
+
+    // Sort candidates:
+    // 1. Unseen (exposure === 0) before seen
+    // 2. Matches persistent error before non-matching
+    // 3. Lower exposure count before higher
+    // 4. Random tie-breaker
+    const scored = candidates.map((p) => ({
+      prompt: p,
+      exposure: getExposureCount(p.id),
+      isTargeted: Boolean(
+        p.targetSkillOrError && persistentErrors.includes(p.targetSkillOrError)
+      ),
+      rand: Math.random(),
+    }));
+
+    scored.sort((a, b) => {
+      const aUnseen = a.exposure === 0 ? 0 : 1;
+      const bUnseen = b.exposure === 0 ? 0 : 1;
+      if (aUnseen !== bUnseen) return aUnseen - bUnseen;
+      if (a.isTargeted !== b.isTargeted) return a.isTargeted ? -1 : 1;
+      if (a.exposure !== b.exposure) return a.exposure - b.exposure;
+      return a.rand - b.rand;
+    });
+
+    const chosenForType: SentenceRetrainingPrompt[] = [];
+    while (chosenForType.length < count) {
+      const lastPicked =
+        chosenForType[chosenForType.length - 1] ||
+        rawSelection[rawSelection.length - 1];
+      const lastPattern = lastPicked ? getGrammaticalPatternKey(lastPicked) : null;
+
+      // Prefer an unseen candidate whose grammatical pattern differs from the immediately preceding item
+      let nextIdx = scored.findIndex(
+        (entry) =>
+          !usedIds.has(entry.prompt.id) &&
+          entry.exposure === 0 &&
+          getGrammaticalPatternKey(entry.prompt) !== lastPattern
       );
-      if (targeted.length > 0) {
-        targeted.sort(() => 0.5 - Math.random());
-        for (const item of targeted) {
-          if (count <= 0) break;
-          sessionPrompts.push(item);
-          usedIds.add(item.id);
-          count--;
-        }
+
+      // Next fallback: any unused candidate whose grammatical pattern differs from the immediately preceding item
+      if (nextIdx === -1) {
+        nextIdx = scored.findIndex(
+          (entry) =>
+            !usedIds.has(entry.prompt.id) &&
+            getGrammaticalPatternKey(entry.prompt) !== lastPattern
+        );
       }
+
+      // Final fallback: any unused candidate
+      if (nextIdx === -1) {
+        nextIdx = scored.findIndex((entry) => !usedIds.has(entry.prompt.id));
+      }
+
+      if (nextIdx === -1) break;
+      const chosen = scored[nextIdx].prompt;
+      chosenForType.push(chosen);
+      usedIds.add(chosen.id);
     }
-    pool = pool.filter((p) => !usedIds.has(p.id));
-    pool.sort(() => 0.5 - Math.random());
-    while (count > 0 && pool.length > 0) {
-      const item = pool.pop()!;
-      sessionPrompts.push(item);
-      usedIds.add(item.id);
-      count--;
-    }
+
+    rawSelection.push(...chosenForType);
   };
 
   pickForType("rebuild", 2);
   pickForType("constrained", 3);
   pickForType("independent", 2);
 
-  return sessionPrompts;
+  return rawSelection;
+}
+
+function normalizeSentenceForComparison(text: string): string {
+  return (text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Inspect exposure history BEFORE recording an attempt to determine:
+ * - whether this question is genuinely unseen
+ * - whether the student is reusing a previously submitted or corrected sentence
+ */
+export function checkRetrainingExposureBeforeSubmit(
+  questionId: string,
+  studentText: string
+): {
+  isUnseenQuestion: boolean;
+  reusedPriorSentence: boolean;
+  priorExposureCount: number;
+} {
+  const state = getRetrainingState();
+  const profile = getProfile();
+  const record = state.exposureHistory?.[questionId];
+  const seenCount = profile.seenQuestions?.[questionId] || 0;
+  const priorExposureCount = Math.max(record?.attempts || 0, seenCount);
+  const isUnseenQuestion = priorExposureCount === 0;
+
+  const normCurrent = normalizeSentenceForComparison(studentText);
+  let reusedPriorSentence = false;
+
+  if (normCurrent.length > 0 && state.exposureHistory) {
+    for (const exp of Object.values(state.exposureHistory)) {
+      if (
+        (exp.submittedSentences || []).some(
+          (prev) => normalizeSentenceForComparison(prev) === normCurrent
+        )
+      ) {
+        reusedPriorSentence = true;
+        break;
+      }
+    }
+  }
+
+  return {
+    isUnseenQuestion,
+    reusedPriorSentence,
+    priorExposureCount,
+  };
+}
+
+/**
+ * Record exposure history for a question on Stage C (first draft) or Stage D (correction).
+ * Never overwrites firstDraftQualityScore when recording a Stage D correction!
+ */
+export function recordRetrainingExposure(params: {
+  questionId: string;
+  studentText: string;
+  attemptStage: "first_draft" | "correction";
+  qualityScore: number;
+  firstDraftPassed: boolean;
+  nowMs?: number;
+}): RetrainingExposureRecord {
+  const state = getRetrainingState();
+  if (!state.exposureHistory) state.exposureHistory = {};
+
+  const existing = state.exposureHistory[params.questionId];
+  const now = params.nowMs ?? Date.now();
+  const trimmed = (params.studentText || "").trim();
+
+  if (!existing) {
+    const created: RetrainingExposureRecord = {
+      questionId: params.questionId,
+      attempts: 1,
+      lastSeenTimestamp: now,
+      firstDraftPassed:
+        params.attemptStage === "first_draft" ? params.firstDraftPassed : false,
+      firstDraftQualityScore:
+        params.attemptStage === "first_draft" ? params.qualityScore : undefined,
+      correctedQualityScore:
+        params.attemptStage === "correction" ? params.qualityScore : undefined,
+      submittedSentences: trimmed ? [trimmed] : [],
+    };
+    state.exposureHistory[params.questionId] = created;
+    saveRetrainingState(state);
+    return created;
+  }
+
+  const sentences = [...(existing.submittedSentences || [])];
+  if (trimmed && !sentences.includes(trimmed)) {
+    sentences.push(trimmed);
+  }
+
+  const updated: RetrainingExposureRecord = {
+    ...existing,
+    attempts:
+      params.attemptStage === "first_draft"
+        ? existing.attempts + 1
+        : existing.attempts,
+    lastSeenTimestamp: now,
+    // First-draft score & pass status are recorded on first_draft and NEVER overwritten by a correction
+    firstDraftPassed:
+      params.attemptStage === "first_draft"
+        ? params.firstDraftPassed
+        : existing.firstDraftPassed,
+    firstDraftQualityScore:
+      params.attemptStage === "first_draft"
+        ? params.qualityScore
+        : existing.firstDraftQualityScore,
+    correctedQualityScore:
+      params.attemptStage === "correction"
+        ? params.qualityScore
+        : existing.correctedQualityScore,
+    submittedSentences: sentences.slice(-10),
+  };
+
+  state.exposureHistory[params.questionId] = updated;
+  saveRetrainingState(state);
+  return updated;
+}
+
+/**
+ * Adaptive mental preparation window (10–15 seconds).
+ * Default is 12s; reduces to 10s when recent unseen first-draft pass rate >= 80%,
+ * or increases to 15s when recent unseen first-draft pass rate < 50%.
+ */
+export function getAdaptivePrepDurationSeconds(defaultSeconds: number = 12): number {
+  const verifiedFirstDrafts = getAttempts().filter(
+    (a) =>
+      a.exerciseType === "sentence_retraining" &&
+      classifyRetrainingAttemptProvenance(a) === "verified_ai" &&
+      (a.details?.attemptStage === "first_draft" ||
+        (!a.details?.attemptStage && (a.details?.attemptNumber || 1) === 1)) &&
+      a.details?.editingMode !== "standard_accessible"
+  );
+
+  if (verifiedFirstDrafts.length < 3) {
+    return Math.max(10, Math.min(15, defaultSeconds));
+  }
+
+  const recent = verifiedFirstDrafts.slice(0, 5);
+  const passes = recent.filter(
+    (a) => Boolean(a.details?.firstDraftQualityPass ?? a.details?.passed)
+  ).length;
+  const rate = passes / recent.length;
+
+  if (rate >= 0.8) return 10;
+  if (rate < 0.5) return 15;
+  return 12;
 }
 
 export function updateRetrainingMastery(
@@ -699,7 +946,13 @@ export function updateRetrainingMastery(
   isIndependent: boolean,
   isFirstAttemptSuccess: boolean,
   isRetrySuccess: boolean,
-  flaggedDefect?: SentenceRetrainingErrorType
+  flaggedDefect?: SentenceRetrainingErrorType,
+  options: {
+    editingMode?: RetrainingEditingMode;
+    isUnseenQuestion?: boolean;
+    reusedPriorSentence?: boolean;
+    attemptStage?: "first_draft" | "correction";
+  } = {}
 ): { state: SentenceRetrainingState; newlyMastered: boolean } {
   const state = getRetrainingState();
   state.rubricVersion = 2;
@@ -715,72 +968,308 @@ export function updateRetrainingMastery(
   }
   let newlyMastered = false;
 
-  if (isFirstAttemptSuccess) {
-    state.firstAttemptCount += 1;
-    state.firstAttemptPassCount += 1;
-    state.verifiedAiStats.firstAttemptCount += 1;
-    state.verifiedAiStats.firstAttemptPassCount += 1;
-    if (isIndependent) {
-      state.independentCount += 1;
-      state.independentPassCount += 1;
-      state.verifiedAiStats.independentCount += 1;
-      state.verifiedAiStats.independentPassCount += 1;
-    }
+  const isAccessibleMode = options.editingMode === "standard_accessible";
+  const isUnseen = options.isUnseenQuestion ?? true;
+  const reusedSentence = Boolean(options.reusedPriorSentence);
+  const isCorrectionOnly = options.attemptStage === "correction";
 
-    if (!state.masteredSkills[skillKey]) {
-      state.masteredSkills[skillKey] = {
-        skillKey,
-        firstAttemptSuccessTopics: [domain],
-        hasIndependentSuccess: isIndependent,
-        mastered: false,
-        verifiedByAi: true,
-      };
-    } else {
-      const entry = state.masteredSkills[skillKey];
-      if (!entry.firstAttemptSuccessTopics.includes(domain)) {
-        entry.firstAttemptSuccessTopics.push(domain);
-      }
+  // Genuine first-draft fluency counts only on Stage C (not Stage D correction),
+  // in strict Think First, Write Once mode, without reusing a memorised sentence.
+  const canCountAsFirstAttemptMastery =
+    !isCorrectionOnly && !isAccessibleMode && !reusedSentence && isUnseen;
+
+  if (!isCorrectionOnly) {
+    if (isFirstAttemptSuccess && canCountAsFirstAttemptMastery) {
+      state.firstAttemptCount += 1;
+      state.firstAttemptPassCount += 1;
+      state.verifiedAiStats.firstAttemptCount += 1;
+      state.verifiedAiStats.firstAttemptPassCount += 1;
       if (isIndependent) {
-        entry.hasIndependentSuccess = true;
+        state.independentCount += 1;
+        state.independentPassCount += 1;
+        state.verifiedAiStats.independentCount += 1;
+        state.verifiedAiStats.independentPassCount += 1;
       }
-      if (
-        !entry.mastered &&
-        entry.firstAttemptSuccessTopics.length >= 3 &&
-        entry.hasIndependentSuccess
-      ) {
-        entry.mastered = true;
-        entry.verifiedByAi = !state.hasUnverifiedHistoricalData;
-        newlyMastered = true;
+
+      if (!state.masteredSkills[skillKey]) {
+        state.masteredSkills[skillKey] = {
+          skillKey,
+          firstAttemptSuccessTopics: [domain],
+          hasIndependentSuccess: isIndependent,
+          mastered: false,
+          verifiedByAi: true,
+        };
+      } else {
+        const entry = state.masteredSkills[skillKey];
+        if (!entry.firstAttemptSuccessTopics.includes(domain)) {
+          entry.firstAttemptSuccessTopics.push(domain);
+        }
+        if (isIndependent) {
+          entry.hasIndependentSuccess = true;
+        }
+        if (
+          !entry.mastered &&
+          entry.firstAttemptSuccessTopics.length >= 3 &&
+          entry.hasIndependentSuccess
+        ) {
+          entry.mastered = true;
+          entry.verifiedByAi = !state.hasUnverifiedHistoricalData;
+          newlyMastered = true;
+        }
       }
-    }
-  } else {
-    state.firstAttemptCount += 1;
-    state.verifiedAiStats.firstAttemptCount += 1;
-    if (isIndependent) {
-      state.independentCount += 1;
-      state.verifiedAiStats.independentCount += 1;
-    }
-    if (flaggedDefect) {
-      state.errorFrequencies[flaggedDefect] =
-        (state.errorFrequencies[flaggedDefect] || 0) + 1;
+    } else if (!isAccessibleMode) {
+      state.firstAttemptCount += 1;
+      state.verifiedAiStats.firstAttemptCount += 1;
+      if (isIndependent) {
+        state.independentCount += 1;
+        state.verifiedAiStats.independentCount += 1;
+      }
+      if (flaggedDefect && !isFirstAttemptSuccess) {
+        state.errorFrequencies[flaggedDefect] =
+          (state.errorFrequencies[flaggedDefect] || 0) + 1;
+      }
     }
   }
 
-  if (isRetrySuccess) {
+  // Stage D (or retry) correction tracking — strictly separate from first-attempt stats
+  if (isCorrectionOnly || (!isFirstAttemptSuccess && isRetrySuccess)) {
     state.retryTotalCount += 1;
-    state.retrySuccessCount += 1;
     state.verifiedAiStats.retryTotalCount += 1;
-    state.verifiedAiStats.retrySuccessCount += 1;
-    if (flaggedDefect) {
-      state.errorCorrections[flaggedDefect] =
-        (state.errorCorrections[flaggedDefect] || 0) + 1;
+    if (isRetrySuccess) {
+      state.retrySuccessCount += 1;
+      state.verifiedAiStats.retrySuccessCount += 1;
+      if (flaggedDefect) {
+        state.errorCorrections[flaggedDefect] =
+          (state.errorCorrections[flaggedDefect] || 0) + 1;
+      }
     }
-  } else if (!isFirstAttemptSuccess) {
+  } else if (!isFirstAttemptSuccess && options.attemptStage === undefined) {
+    // Legacy single-call path compatibility
     state.retryTotalCount += 1;
     state.verifiedAiStats.retryTotalCount += 1;
   }
+
+  state.adaptivePrepSeconds = getAdaptivePrepDurationSeconds(
+    state.adaptivePrepSeconds || 12
+  );
 
   saveRetrainingState(state);
   return { state, newlyMastered };
+}
+
+function computeMedian(values: number[]): number | null {
+  if (!values || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+/**
+ * Compute comprehensive Parent Dashboard analytics for Sentence Retraining:
+ * - First-draft quality trend (strictly separated from corrected scores)
+ * - First-attempt pass rate on unseen questions
+ * - Median preparation time & median writing time
+ * - Correction success rate
+ * - Most frequent grammatical/stylistic defects
+ * - Delayed transfer performance
+ * Strictly excludes failed AI evaluations, unverified fallback scores, and accessible-mode attempts from fluency stats.
+ */
+export function getRetrainingAnalytics(): RetrainingAnalyticsSummary {
+  const allAttempts = getAttempts();
+  const state = getRetrainingState();
+
+  // Only include verified AI attempts; exclude failed evaluations or legacy fallbacks
+  const verifiedRetraining = allAttempts
+    .filter(
+      (a) =>
+        a.exerciseType === "sentence_retraining" &&
+        classifyRetrainingAttemptProvenance(a) === "verified_ai" &&
+        typeof a.score === "number" &&
+        !isNaN(a.score)
+    )
+    .sort((a, b) => a.timestamp - b.timestamp); // chronological order
+
+  const accessibleModeAttemptsCount = verifiedRetraining.filter(
+    (a) => a.details?.editingMode === "standard_accessible"
+  ).length;
+
+  // Separate strict first-draft attempts from Stage D correction attempts
+  const strictFirstDrafts = verifiedRetraining.filter(
+    (a) =>
+      (a.details?.attemptStage === "first_draft" ||
+        (!a.details?.attemptStage && (a.details?.attemptNumber || 1) === 1)) &&
+      a.details?.editingMode !== "standard_accessible"
+  );
+
+  const correctionAttempts = verifiedRetraining.filter(
+    (a) =>
+      a.details?.attemptStage === "correction" ||
+      (!a.details?.attemptStage && (a.details?.attemptNumber || 1) > 1)
+  );
+
+  // Map questionId -> latest correction score so parent report can display first-draft alongside corrected performance without merging them
+  const correctionScoreByFirstDraftId = new Map<string, number>();
+  for (const corr of correctionAttempts) {
+    const key = corr.details?.firstDraftAttemptId || corr.questionId;
+    if (key) {
+      correctionScoreByFirstDraftId.set(
+        key,
+        corr.details?.qualityScore ?? corr.score
+      );
+    }
+  }
+
+  let fluentFirstDraftCount = 0;
+  let highQualityFirstDraftCount = 0;
+  let developingFirstDraftCount = 0;
+  let notMasteredFirstDraftCount = 0;
+
+  const firstDraftQualityTrend = strictFirstDrafts.map((a) => {
+    const qualityScore = a.details?.qualityScore ?? a.score;
+    const band: RetrainingQualityBand =
+      a.details?.qualityBand ||
+      (qualityScore >= 90 && (a.details?.writingDurationSeconds ?? a.durationSeconds) <= 45
+        ? "fluent_first_draft"
+        : qualityScore >= 90
+        ? "high_quality"
+        : qualityScore >= 80 && Boolean(a.details?.firstDraftQualityPass ?? a.details?.passed)
+        ? "developing"
+        : "not_mastered");
+
+    if (band === "fluent_first_draft") fluentFirstDraftCount++;
+    else if (band === "high_quality") highQualityFirstDraftCount++;
+    else if (band === "developing") developingFirstDraftCount++;
+    else notMasteredFirstDraftCount++;
+
+    const correctedScore =
+      correctionScoreByFirstDraftId.get(a.id) ??
+      (a.questionId ? correctionScoreByFirstDraftId.get(a.questionId) : undefined);
+
+    return {
+      timestamp: a.timestamp,
+      questionId: a.questionId || "unknown",
+      qualityScore,
+      correctedScore,
+      qualityBand: band,
+    };
+  });
+
+  // Unseen first-attempt pass rate (excluding repeated questions or reused sentences)
+  const unseenFirstDrafts = strictFirstDrafts.filter(
+    (a) =>
+      (a.details?.isUnseenQuestion ?? a.transferStatus !== "REPEATED") &&
+      !a.details?.reusedPriorSentence
+  );
+  const unseenFirstAttemptTotal = unseenFirstDrafts.length;
+  const unseenFirstAttemptPassed = unseenFirstDrafts.filter((a) =>
+    Boolean(a.details?.firstDraftQualityPass ?? a.details?.passed)
+  ).length;
+  const unseenFirstAttemptPassRate =
+    unseenFirstAttemptTotal > 0
+      ? Math.round((unseenFirstAttemptPassed / unseenFirstAttemptTotal) * 100)
+      : null;
+
+  // Median preparation time & median writing time
+  const prepTimes = strictFirstDrafts
+    .map((a) => a.details?.prepDurationSeconds)
+    .filter((v): v is number => typeof v === "number" && v >= 0);
+  const writingTimes = strictFirstDrafts
+    .map((a) => a.details?.writingDurationSeconds ?? a.durationSeconds)
+    .filter((v): v is number => typeof v === "number" && v > 0);
+
+  const medianPrepTimeSeconds = computeMedian(prepTimes);
+  const medianWritingTimeSeconds = computeMedian(writingTimes);
+
+  // Correction success rate
+  const correctionTotalCount =
+    correctionAttempts.length > 0
+      ? correctionAttempts.length
+      : state.verifiedAiStats?.retryTotalCount || 0;
+  const correctionSuccessCount =
+    correctionAttempts.length > 0
+      ? correctionAttempts.filter((a) =>
+          Boolean(a.details?.defectCorrected ?? a.details?.passed)
+        ).length
+      : state.verifiedAiStats?.retrySuccessCount || 0;
+  const correctionSuccessRate =
+    correctionTotalCount > 0
+      ? Math.round((correctionSuccessCount / correctionTotalCount) * 100)
+      : null;
+
+  // Top defects
+  const allDefectKeys = Object.keys(
+    state.errorFrequencies
+  ) as SentenceRetrainingErrorType[];
+  const topDefects = allDefectKeys
+    .map((defect) => {
+      const flagged = state.errorFrequencies[defect] || 0;
+      const corrected = state.errorCorrections[defect] || 0;
+      return {
+        defect,
+        flagged,
+        corrected,
+        net: flagged - corrected,
+      };
+    })
+    .filter((d) => d.flagged > 0)
+    .sort((a, b) => b.flagged - a.flagged || b.net - a.net);
+
+  // Delayed transfer performance:
+  // Track unseen first-draft attempts on a targetSkillOrError (or domain) that occurred
+  // AFTER an earlier failed/remediated attempt on that same targetSkillOrError (or domain).
+  const firstFailureTimestampBySkill = new Map<string, number>();
+  let delayedTransferTotal = 0;
+  let delayedTransferPassed = 0;
+
+  for (const att of strictFirstDrafts) {
+    const skillKey =
+      att.details?.targetSkillOrError || att.domain || "general";
+    const passedFirstDraft = Boolean(
+      att.details?.firstDraftQualityPass ?? att.details?.passed
+    );
+    const isUnseen =
+      (att.details?.isUnseenQuestion ?? att.transferStatus !== "REPEATED") &&
+      !att.details?.reusedPriorSentence;
+
+    const priorFailureTs = firstFailureTimestampBySkill.get(skillKey);
+    if (priorFailureTs !== undefined && isUnseen && att.timestamp > priorFailureTs) {
+      delayedTransferTotal++;
+      if (passedFirstDraft) {
+        delayedTransferPassed++;
+      }
+    }
+
+    if (!passedFirstDraft && !firstFailureTimestampBySkill.has(skillKey)) {
+      firstFailureTimestampBySkill.set(skillKey, att.timestamp);
+    }
+  }
+
+  const delayedTransferPassRate =
+    delayedTransferTotal > 0
+      ? Math.round((delayedTransferPassed / delayedTransferTotal) * 100)
+      : null;
+
+  return {
+    firstDraftQualityTrend,
+    unseenFirstAttemptPassRate,
+    unseenFirstAttemptPassed,
+    unseenFirstAttemptTotal,
+    medianPrepTimeSeconds,
+    medianWritingTimeSeconds,
+    correctionSuccessRate,
+    correctionSuccessCount,
+    correctionTotalCount,
+    topDefects,
+    delayedTransferPassRate,
+    delayedTransferPassed,
+    delayedTransferTotal,
+    fluentFirstDraftCount,
+    highQualityFirstDraftCount,
+    developingFirstDraftCount,
+    notMasteredFirstDraftCount,
+    accessibleModeAttemptsCount,
+  };
 }
 
