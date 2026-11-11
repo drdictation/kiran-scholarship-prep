@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage";
 import { generateAiAuditMarkdown, downloadFile } from "@/lib/export-audit";
 import { LogicDashboard } from "@/components/parent/LogicDashboard";
+import { SentenceReviewSection } from "@/components/parent/SentenceReviewSection";
 import {
   BarChart3,
   Brain,
@@ -677,6 +678,9 @@ export function ParentDashboard() {
           })}
         </div>
       </div>
+
+      {/* DEDICATED SENTENCE RESPONSES & DATE REVIEW SUBSECTION */}
+      <SentenceReviewSection attempts={attempts} />
 
       {/* AI MODEL CONFIGURATION (OPENROUTER) */}
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
