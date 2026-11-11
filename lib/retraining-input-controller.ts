@@ -60,7 +60,6 @@ export function createFirstDraftInputState(
 }
 
 const BLOCKED_KEYS = new Set([
-  "Backspace",
   "Delete",
   "ArrowLeft",
   "ArrowRight",
@@ -73,10 +72,7 @@ const BLOCKED_KEYS = new Set([
 ]);
 
 const BLOCKED_INPUT_TYPES = new Set([
-  "deleteContentBackward",
   "deleteContentForward",
-  "deleteWordBackward",
-  "deleteWordForward",
   "deleteSoftLineBackward",
   "deleteSoftLineForward",
   "deleteHardLineBackward",
@@ -155,6 +151,29 @@ export function handleFirstDraftKeyDown(
         lastBlockedReason: `key_${event.key}`,
       },
     };
+  }
+
+  // Current-word typo correction: Backspace is allowed ONLY within the current word
+  // being typed (cannot delete whitespace or cross past space/punctuation boundary into earlier words).
+  if (event.key === "Backspace") {
+    const text = state.committedText;
+    if (text.length === 0) {
+      return { preventDefault: true, state };
+    }
+    const lastChar = text[text.length - 1];
+    // If last character is whitespace or sentence boundary, block backspacing to prevent wiping prior words
+    if (/\s/.test(lastChar)) {
+      return {
+        preventDefault: true,
+        state: {
+          ...state,
+          blockedEditCount: state.blockedEditCount + 1,
+          lastBlockedReason: "backspace_across_word_blocked",
+        },
+      };
+    }
+    // Allowed: character deletion within current active word
+    return { preventDefault: false, state };
   }
 
   return { preventDefault: false, state };
@@ -301,23 +320,54 @@ export function applyFirstDraftChange(
     };
   }
 
-  // 2. Reject any reduction in length or modification of existing committed prefix
-  if (
-    proposedValue.length < state.committedText.length ||
-    !proposedValue.startsWith(state.committedText)
-  ) {
+  // 2. Handle deletion (e.g. backspace for correcting spelling within active word)
+  if (proposedValue.length < state.committedText.length) {
+    const deletedLength = state.committedText.length - proposedValue.length;
+
+    // Must be a suffix deletion (deleting characters from the tail of committedText, not mid-sentence)
+    const isTailDeletion = state.committedText.startsWith(proposedValue);
+    if (!isTailDeletion) {
+      return {
+        ...state,
+        displayText: state.committedText,
+        blockedEditCount: state.blockedEditCount + 1,
+        lastBlockedReason: "mid_sentence_deletion_blocked",
+      };
+    }
+
+    // Only allow single-character backspaces or deleting within current word (cannot delete whitespace or multiple words)
+    const deletedChars = state.committedText.slice(proposedValue.length);
+    const deletedWhitespace = /\s/.test(deletedChars);
+
+    if (deletedWhitespace || deletedLength > 2) {
+      return {
+        ...state,
+        displayText: state.committedText,
+        blockedEditCount: state.blockedEditCount + 1,
+        lastBlockedReason: "backspace_across_word_blocked",
+      };
+    }
+
+    // Allowed: correcting typo within current word
+    return {
+      ...state,
+      committedText: proposedValue,
+      displayText: proposedValue,
+      compositionBaseText: proposedValue,
+    };
+  }
+
+  // 3. Reject modification of existing committed prefix on insertions
+  if (!proposedValue.startsWith(state.committedText)) {
     return {
       ...state,
       displayText: state.committedText,
       blockedEditCount: state.blockedEditCount + 1,
-      lastBlockedReason:
-        proposedValue.length < state.committedText.length
-          ? "deletion_blocked"
-          : "prefix_modification_blocked",
+      lastBlockedReason: "prefix_modification_blocked",
     };
   }
 
-  // 3. Reject multi-character paste bursts disguised as insertText (> 2 chars at once outside composition)
+  // 4. Reject multi-character paste bursts disguised as insertText (> 2 chars at once outside composition)
   const delta = proposedValue.slice(state.committedText.length);
   if (delta.length > 2 && inputType === "insertFromPaste") {
     return {

@@ -526,24 +526,38 @@ async function runDeterministicTests() {
     passedCount++;
   }
 
-  // 14. Stage B input immutability: blocks backspace, delete, cursor moves, selection replacement, paste, and undo
+  // 14. Stage B input immutability: allows typo correction within active word, blocks cross-word deletion, structure wiping, cursor moves, selection replacement, paste, and undo
   {
     let st = createFirstDraftInputState("think_first_write_once");
     st = applyFirstDraftChange(st, "Separated", { inputType: "insertText", nowMs: 1000 });
-    st = applyFirstDraftChange(st, "Separated bicycle lanes", { inputType: "insertText", nowMs: 1200 });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes");
+    assert.strictEqual(st.committedText, "Separated");
     assert.strictEqual(st.firstKeystrokeAt, 1000);
 
-    // Block Backspace keydown & deleteContentBackward change
-    const bsKey = handleFirstDraftKeyDown(st, { key: "Backspace" });
-    assert.strictEqual(bsKey.preventDefault, true, "Backspace keydown must be prevented");
-    st = applyFirstDraftChange(bsKey.state, "Separated bicycle lane", {
+    // Allowed: Backspace keydown & typo correction within active current word
+    const typoKey = handleFirstDraftKeyDown(st, { key: "Backspace" });
+    assert.strictEqual(typoKey.preventDefault, false, "Backspace within active word must be allowed for spelling correction");
+    st = applyFirstDraftChange(st, "Separate", {
       inputType: "deleteContentBackward",
-      nowMs: 1300,
+      nowMs: 1100,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Backspace deletion must not alter committedText");
+    assert.strictEqual(st.committedText, "Separate", "Typo correction inside active word succeeds");
+
+    // Add space and next word
+    let word1 = createFirstDraftInputState("think_first_write_once");
+    word1 = applyFirstDraftChange(word1, "Separate ", { inputType: "insertText", nowMs: 1200 });
+    assert.strictEqual(word1.committedText, "Separate ");
+
+    // Block Backspace once space boundary is reached (cannot cross back into prior word to change sentence structure)
+    const bsAcrossSpaceKey = handleFirstDraftKeyDown(word1, { key: "Backspace" });
+    assert.strictEqual(bsAcrossSpaceKey.preventDefault, true, "Backspace at space boundary must be blocked to prevent changing sentence structure");
+    const blockedDelete = applyFirstDraftChange(word1, "Separate", {
+      inputType: "deleteContentBackward",
+      nowMs: 1260,
+    });
+    assert.strictEqual(blockedDelete.committedText, "Separate ", "Cross-word deletion must not alter committedText");
 
     // Block cursor repositioning
+    st = applyFirstDraftChange(st, "Separate bicycle", { inputType: "insertText", nowMs: 1300 });
     const leftKey = handleFirstDraftKeyDown(st, { key: "ArrowLeft" });
     assert.strictEqual(leftKey.preventDefault, true, "ArrowLeft cursor move must be prevented");
     const pos = getEnforcedCursorPosition(st, 3, 9);
@@ -552,44 +566,44 @@ async function runDeterministicTests() {
     assert.strictEqual(pos.wasRepositioned, true);
 
     // Block mid-sentence selection replacement
-    st = applyFirstDraftChange(st, "Separated car lanes", {
+    st = applyFirstDraftChange(st, "Separate car", {
       inputType: "insertReplacementText",
       nowMs: 1400,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Selection replacement must be rejected");
+    assert.strictEqual(st.committedText, "Separate bicycle", "Selection replacement must be rejected");
 
     // Block Paste and Undo
     const pasteKey = handleFirstDraftKeyDown(st, { key: "v", metaKey: true });
     assert.strictEqual(pasteKey.preventDefault, true, "Cmd+V must be prevented");
-    st = applyFirstDraftChange(pasteKey.state, "Separated bicycle lanes protect riders from traffic", {
+    st = applyFirstDraftChange(pasteKey.state, "Separate bicycle lanes protect riders from traffic", {
       inputType: "insertFromPaste",
       nowMs: 1500,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes", "Paste inputType must be rejected");
+    assert.strictEqual(st.committedText, "Separate bicycle", "Paste inputType must be rejected");
 
     const undoKey = handleFirstDraftKeyDown(st, { key: "z", metaKey: true });
     assert.strictEqual(undoKey.preventDefault, true, "Cmd+Z Undo must be prevented");
-    st = applyFirstDraftChange(undoKey.state, "Separated", {
+    st = applyFirstDraftChange(undoKey.state, "Separate", {
       inputType: "historyUndo",
       nowMs: 1600,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes", "historyUndo must be rejected");
+    assert.strictEqual(st.committedText, "Separate bicycle", "historyUndo must be rejected");
 
     // Normal appending of punctuation, spaces, and words remains allowed
-    st = applyFirstDraftChange(st, "Separated bicycle lanes, protecting riders.", {
+    st = applyFirstDraftChange(st, "Separate bicycle lanes, protecting riders.", {
       inputType: "insertText",
       nowMs: 1700,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes, protecting riders.");
+    assert.strictEqual(st.committedText, "Separate bicycle lanes, protecting riders.");
 
     // Lock answer on submission
     st = lockFirstDraftState(st, 2000);
-    st = applyFirstDraftChange(st, "Separated bicycle lanes, protecting riders. More", {
+    st = applyFirstDraftChange(st, "Separate bicycle lanes, protecting riders. More", {
       inputType: "insertText",
       nowMs: 2100,
     });
-    assert.strictEqual(st.committedText, "Separated bicycle lanes, protecting riders.", "Locked state must reject further edits");
-    console.log("✓ [D14] Stage B input immutability blocks backspace, cursor move, selection replace, paste, and undo");
+    assert.strictEqual(st.committedText, "Separate bicycle lanes, protecting riders.", "Locked state must reject further edits");
+    console.log("✓ [D14] Stage B input immutability allows typo correction in active word, blocks cross-word deletion, selection replace, paste, and undo");
     passedCount++;
   }
 

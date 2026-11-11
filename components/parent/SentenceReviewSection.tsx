@@ -52,6 +52,7 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
   const [selectedDate, setSelectedDate] = useState<string>("ALL");
   const [drillTypeFilter, setDrillTypeFilter] = useState<string>("ALL");
   const [passFilter, setPassFilter] = useState<"ALL" | "PASSED" | "FLAGGED">("ALL");
+  const [stageFilter, setStageFilter] = useState<"ALL" | "first_draft" | "correction">("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Filter only sentence-related exercises
@@ -69,6 +70,18 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
     return Array.from(dates).sort((a, b) => b.localeCompare(a));
   }, [sentenceAttempts]);
 
+  // Map first-draft attempt id -> corresponding correction attempt
+  const correctionsMap = useMemo(() => {
+    const map = new Map<string, AttemptLog>();
+    sentenceAttempts.forEach((a) => {
+      const firstId = a.details?.firstDraftAttemptId;
+      if (firstId) {
+        map.set(firstId, a);
+      }
+    });
+    return map;
+  }, [sentenceAttempts]);
+
   // Filtered sentence attempts
   const filteredAttempts = useMemo(() => {
     return sentenceAttempts.filter((a) => {
@@ -78,6 +91,10 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
       }
       if (drillTypeFilter !== "ALL") {
         if (a.exerciseType !== drillTypeFilter) return false;
+      }
+      if (stageFilter !== "ALL") {
+        const st = a.details?.attemptStage || ((a.details?.attemptNumber || 1) > 1 ? "correction" : "first_draft");
+        if (st !== stageFilter) return false;
       }
       if (passFilter === "PASSED") {
         const isPass = Boolean(
@@ -92,7 +109,7 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
       }
       return true;
     });
-  }, [sentenceAttempts, selectedDate, drillTypeFilter, passFilter]);
+  }, [sentenceAttempts, selectedDate, drillTypeFilter, stageFilter, passFilter]);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -207,15 +224,56 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
               Needs Work
             </button>
           </div>
+
+          {/* Attempt / Stage Filter */}
+          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setStageFilter("ALL")}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                stageFilter === "ALL"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Show all attempts"
+            >
+              Both Attempts
+            </button>
+            <button
+              type="button"
+              onClick={() => setStageFilter("first_draft")}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                stageFilter === "first_draft"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Show only 1st draft attempts"
+            >
+              1st Drafts
+            </button>
+            <button
+              type="button"
+              onClick={() => setStageFilter("correction")}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                stageFilter === "correction"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Show only 2nd / correction rewrites"
+            >
+              2nd Rewrites
+            </button>
+          </div>
         </div>
 
-        {(selectedDate !== "ALL" || drillTypeFilter !== "ALL" || passFilter !== "ALL") && (
+        {(selectedDate !== "ALL" || drillTypeFilter !== "ALL" || passFilter !== "ALL" || stageFilter !== "ALL") && (
           <button
             type="button"
             onClick={() => {
               setSelectedDate("ALL");
               setDrillTypeFilter("ALL");
               setPassFilter("ALL");
+              setStageFilter("ALL");
             }}
             className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
           >
@@ -367,7 +425,10 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
                 {/* EXACT STUDENT SUBMISSION (PRIMARY EMPHASIS) */}
                 <div className="space-y-1 pt-1">
                   <span className="font-extrabold text-[11px] uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> Kiran&apos;s Exact Submitted Response:
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {attemptStage === "correction"
+                      ? "Kiran's 2nd Attempt (Stage D Correction Rewrite):"
+                      : "Kiran's 1st Draft Submission:"}
                   </span>
                   <div className="p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-slate-900 font-semibold text-sm leading-relaxed">
                     {typeof att.input === "string" ? (
@@ -385,6 +446,44 @@ export function SentenceReviewSection({ attempts }: SentenceReviewSectionProps) 
                     )}
                   </div>
                 </div>
+
+                {/* If this is a 1st draft that had a 2nd correction rewrite, show the 2nd attempt side-by-side */}
+                {attemptStage === "first_draft" && correctionsMap.has(att.id) && (() => {
+                  const corr = correctionsMap.get(att.id)!;
+                  return (
+                    <div className="space-y-1 p-3 bg-amber-50/70 rounded-xl border border-amber-200">
+                      <div className="flex items-center justify-between text-[11px] font-bold">
+                        <span className="text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3 text-amber-700" /> 2nd Attempt (Stage D Correction):
+                        </span>
+                        <span className="text-emerald-700 font-black">
+                          Score: {corr.score}%
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-900 leading-relaxed">
+                        &ldquo;{typeof corr.input === "string" ? corr.input : JSON.stringify(corr.input)}&rdquo;
+                      </p>
+                      <p className="text-[11px] text-slate-600 pt-0.5">
+                        <strong>Correction Feedback:</strong> {corr.feedback}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* If this is a 2nd correction attempt, display reference to the original 1st draft text if available */}
+                {attemptStage === "correction" && (
+                  <div className="text-[11px] font-semibold text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span>Initial 1st draft {att.details?.firstDraftScore !== undefined ? `(${att.details.firstDraftScore}%)` : ""}:</span>
+                      <span className="text-emerald-700 font-bold">&rarr; Improved to {att.score}% in this 2nd attempt</span>
+                    </div>
+                    {att.details?.firstDraftText && (
+                      <p className="text-xs italic text-slate-800">
+                        &ldquo;{att.details.firstDraftText}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Coach Feedback & Problematic Phrase */}
                 <div className="text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-200 space-y-1">

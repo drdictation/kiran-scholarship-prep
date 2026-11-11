@@ -601,6 +601,7 @@ export function SentenceRetraining({ onComplete, onBack }: Props) {
           attemptStage: "correction",
           editingMode,
           firstDraftAttemptId,
+          firstDraftText: inputState.committedText.trim(),
           firstDraftScore:
             firstDraftEval?.qualityScore ?? (firstDraftEval?.score || 0) * 10,
           correctedScore: data.qualityScore ?? data.score * 10,
